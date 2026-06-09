@@ -1,166 +1,208 @@
-📊 Stock Intelligence Dashboard
+# Stock Intelligence Dashboard
 
-A full-stack, AI-powered stock analysis platform that combines real-time financial data visualization with machine learning-based price prediction. Built using React (frontend) and FastAPI (backend) with a modular ML pipeline.
+A full-stack, spec-driven stock analysis platform that combines financial data visualization with machine learning-based price prediction.
 
-🚀 Overview
+Built using React (frontend) and FastAPI (backend), it transforms raw stock market data into interactive charts and predictive insights.
 
-The Stock Intelligence Dashboard allows users to:
+---
 
-Analyze historical stock market trends
-View interactive financial charts
-Generate next-day stock price predictions using ML models
-Explore company-level financial information
+## Overview
 
-The system integrates data fetching, feature engineering, visualization, and machine learning into a single seamless workflow.
+The system allows users to:
 
-🧠 Key Features
-📈 Stock Data Visualization
-Interactive Plotly charts for:
-Closing price trends
-Trading volume
-Moving averages (7-day, 21-day)
-Dynamic updates based on user input
-🤖 Machine Learning Prediction
-Predicts next-day stock closing price
-Models supported:
-Linear Regression (baseline)
-Random Forest Regressor (advanced option)
-Outputs:
-Predicted price
-Trend direction (Increase / Decrease)
-🏢 Company Insights
-Company name
-Sector / industry
-Market capitalization
-52-week high and low
-🏗️ System Architecture
-Frontend (React + TypeScript)
-        ↓
-API Client (Axios/Fetch)
-        ↓
-Backend (FastAPI)
-        ↓
-Data Layer (yfinance)
-        ↓
-Feature Engineering (Pandas)
-        ↓
-Machine Learning (Scikit-learn)
-        ↓
-JSON Response
-        ↓
-Frontend Visualization (Plotly)
-⚙️ Tech Stack
-Frontend
-React + TypeScript
-Tailwind CSS
-Plotly.js
-Context API (State Management)
-Backend
-FastAPI
-Uvicorn
-yfinance
-Data Processing
-Pandas
-NumPy
-Machine Learning
-Scikit-learn
+- Search any stock ticker (e.g., AAPL, INFY.NS)
+- View historical price charts
+- Analyze technical indicators (Moving Averages)
+- Get next-day price prediction using ML models
+- View company profile information
+
+It follows a structured development lifecycle:
+
+Specification → Planning → Task Breakdown → Implementation
+
+---
+
+## System Architecture
+
+### Frontend (React + TypeScript)
+
+Responsible for UI and visualization:
+
+- Stock search input
+- Interactive dashboard layout
+- Plotly charts (price + volume)
+- Prediction display panel
+- Company profile section
+
+Communicates with backend via:
+
+http://localhost:8000/api/v1/stock/{ticker}
+
+---
+
+### Backend (FastAPI + ML Pipeline)
+
+Modular architecture:
+
+- api/ → REST endpoints
+- data/ → Stock data fetching (yFinance)
+- features/ → Technical indicators and feature engineering
+- ml/ → Machine learning models
+- schemas/ → API data contracts (Pydantic)
+
+---
+
+## Data Flow
+
+1. User enters stock ticker (e.g., AAPL)
+2. Frontend sends request to backend
+3. Backend fetches data from yFinance
+4. Feature engineering is applied:
+   - Moving Averages (7-day, 21-day)
+   - Lag features
+5. ML model predicts next-day price
+6. Response returned as structured JSON
+7. Frontend renders:
+   - Charts
+   - Prediction
+   - Company details
+
+---
+
+## API Endpoints
+
+### Health Check
+
+GET /api/v1/health
+
+Response:
+{
+  "status": "ok"
+}
+
+---
+
+### Stock Data
+
+GET /api/v1/stock/{ticker}?range=1y&model=linear
+
+Parameters:
+- ticker → Stock symbol (AAPL, TCS.NS)
+- range → 1m | 6m | 1y | 5y
+- model → linear | rf
+
+Response:
+{
+  "ticker": "AAPL",
+  "profile": {
+    "name": "Apple Inc.",
+    "sector": "Technology",
+    "market_cap": 4396219367424,
+    "high_52w": 317.4,
+    "low_52w": 195.07
+  },
+  "history": [],
+  "prediction": {
+    "model": "Linear Regression",
+    "predicted_price": 210.5,
+    "trend": "increase",
+    "current_price": 208.1
+  }
+}
+
+---
+
+## Tech Stack
+
+### Frontend
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Plotly.js
+
+### Backend
+- FastAPI
+- Uvicorn
+- yFinance
+- Pandas
+- NumPy
+- Scikit-learn
+
+---
+
+## Machine Learning
+
+Two models are supported:
+
 Linear Regression
+- Fast and interpretable
+- Baseline forecasting model
+
 Random Forest Regressor
-📁 Project Structure
-stock-dashboard/
-│
-├── frontend/                 # React frontend
-│   ├── src/
-│   │   ├── components/       # UI components
-│   │   ├── context/          # Global state
-│   │   ├── services/         # API client
-│   │   └── pages/            # Dashboard UI
-│
-├── backend/                  # FastAPI backend
-│   ├── api/                  # API routes
-│   ├── data/                # Data provider (yfinance)
-│   ├── features/            # Feature engineering
-│   ├── ml/                  # ML models
-│   ├── schemas/             # Pydantic models
-│   └── main.py              # Entry point
-│
-└── README.md
-🔄 Data Flow
-User Input (Stock Symbol)
-        ↓
-Frontend (React UI)
-        ↓
-API Request (/api/v1/stock/{ticker})
-        ↓
-Backend (FastAPI)
-        ↓
-yfinance (Stock Data Retrieval)
-        ↓
-Feature Engineering (MA7, MA21, Lag Features)
-        ↓
-Machine Learning Model
-        ↓
-Prediction + Processed Data
-        ↓
-Frontend Visualization (Plotly Charts)
-▶️ How to Run
-1. Clone Repository
-git clone <repo-url>
+- Better for non-linear patterns
+- More robust predictions
+
+---
+
+## Feature Engineering
+
+- Moving Average (7-day)
+- Moving Average (21-day)
+- Lag features (t-1 to t-5)
+- Day of week
+- Month
+
+---
+
+## How to Run
+
+### Backend
+
 cd stock-dashboard
-2. Run Backend
-cd frontend
 python -m backend.main
 
 Backend runs at:
-
 http://localhost:8000
-3. Run Frontend
+
+---
+
+### Frontend
+
 cd frontend
 npm install
 npm run dev
 
 Frontend runs at:
-
 http://localhost:5173
-🔍 API Endpoints
-Health Check
-GET /api/v1/health
 
-Response:
+---
 
-{ "status": "ok" }
-Stock Data + Prediction
-GET /api/v1/stock/{ticker}?range=1y&model=linear
+## Testing API
 
-Example:
+Health check:
+curl http://localhost:8000/api/v1/health
 
-/api/v1/stock/AAPL?range=1y&model=rf
-📊 ML Pipeline
-Fetch historical stock data (yfinance)
-Generate technical indicators:
-Moving averages (7-day, 21-day)
-Lag features
-Train regression model:
-Linear Regression (baseline)
-Random Forest (optional)
-Predict next-day closing price
-Classify trend (Increase / Decrease)
-🎯 Success Criteria
-✔ Stock data loads correctly
-✔ Charts update dynamically
-✔ ML predictions are generated
-✔ Frontend and backend communicate properly
-✔ System runs end-to-end without errors
-💡 Future Improvements
-Add LSTM-based deep learning model
-Include news sentiment analysis
-Deploy backend (Render / AWS)
-Add authentication system
-Add portfolio tracking feature
-🧑‍💻 Author
+Stock data:
+curl "http://localhost:8000/api/v1/stock/AAPL?range=1m&model=linear"
 
-Built as a learning project combining:
+---
 
-Data Science
-Machine Learning
-Full-stack Web Development
+## Project Status
+
+- Backend API complete
+- ML pipeline integrated
+- Frontend dashboard complete
+- End-to-end system functional
+
+Optional Improvements:
+- Add LSTM / XGBoost models
+- Add caching layer (Redis)
+- Add authentication system
+- Add real-time WebSocket updates
+
+---
+
+## Summary
+
+This project is a complete end-to-end stock intelligence system that converts raw financial data into predictive insights using machine learning and interactive visualization.
