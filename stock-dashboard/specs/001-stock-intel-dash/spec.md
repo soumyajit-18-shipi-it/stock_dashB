@@ -2,10 +2,6 @@
 
 **Feature Branch**: `001-stock-intel-dash`
 
-**Created**: 2026-06-09
-
-**Status**: Draft
-
 **Input**: User description: "Build a Stock Intelligence Dashboard System as a spec-driven, single-page web application that transforms financial time-series data into interactive analytics and predictive insights using machine learning..."
 
 ## User Scenarios & Testing *(mandatory)*
