@@ -5,14 +5,16 @@ import { useSearchHistory } from '../hooks/useStock';
 
 export function SearchBar() {
   const { setTicker, isLoading } = useStore();
-  const { history } = useSearchHistory();
+  const { history, add } = useSearchHistory();
   const [inputValue, setInputValue] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim()) {
-      setTicker(inputValue.trim().toUpperCase());
+    const ticker = inputValue.trim().toUpperCase();
+    if (ticker) {
+      setTicker(ticker);
+      add(ticker);
       setShowHistory(false);
     }
   };
@@ -20,6 +22,7 @@ export function SearchBar() {
   const handleHistoryClick = (symbol: string) => {
     setInputValue(symbol);
     setTicker(symbol);
+    add(symbol);
     setShowHistory(false);
   };
 
@@ -80,6 +83,7 @@ export function SearchBar() {
             onClick={() => {
               setInputValue(symbol);
               setTicker(symbol);
+              add(symbol);
             }}
             className="px-3 py-1 text-sm bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-full transition-colors"
           >

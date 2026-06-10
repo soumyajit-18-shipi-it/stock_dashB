@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query, Header
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from ..schemas import (
     StockResponse,
     CompanyProfile,
@@ -14,29 +14,49 @@ from ..schemas import (
     DateRangeEnum,
     ModelEnum,
 )
-from ..data.provider import StockDataProvider
-from ..features.engineering import FeatureEngineer
-from ..ml.predictor import StockPredictor
+from ..services.stock_service import stock_service
 from ..services import WatchlistService, HistoryService, PredictionService
 from ..schemas import PredictionRecord as PredictionRecordSchema
 
 
 router = APIRouter()
-data_provider = StockDataProvider()
-feature_engineer = FeatureEngineer()
-predictor = StockPredictor()
 watchlist_service = WatchlistService()
 history_service = HistoryService()
 prediction_service = PredictionService()
 
 
-def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
-    return x_user_id or "anonymous"
+def get_user_id(x_user_id: Optional[str] = Header(None)) -> Optional[str]:
+    return x_user_id
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     return HealthResponse(status="healthy")
+
+
+@router.get("/debug/metrics")
+async def get_debug_metrics():
+    return stock_service.last_metrics
+
+
+@router.get("/debug/data-pipeline/{ticker}")
+async def debug_data_pipeline(ticker: str):
+    ticker = ticker.upper()
+    try:
+        data = await stock_service.get_full_stock_analysis(ticker)
+        return {
+            "ticker": ticker,
+            "profile_source_merge": {
+                "name": data.profile.name,
+                "sector": data.profile.sector,
+                "industry": data.profile.industry
+            },
+            "history_count": len(data.history),
+            "prediction_check": data.prediction.model_dump(),
+            "metrics": stock_service.last_metrics
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.get("/stock/{ticker}", response_model=StockResponse)
@@ -46,49 +66,22 @@ async def get_stock(
     model: ModelEnum = Query(ModelEnum.LINEAR),
     x_user_id: Optional[str] = Header(None)
 ):
-    ticker = ticker.upper()
     try:
-        df = data_provider.get_stock_data(ticker, range.value)
-        df = feature_engineer.prepare_features(df)
-
-        profile_data = data_provider.get_company_info(ticker)
-        profile = CompanyProfile(**profile_data)
-
-        history = []
-        for idx, row in df.iterrows():
-            point = StockPricePoint(
-                date=idx.strftime("%Y-%m-%d"),
-                open=float(row["Open"]),
-                high=float(row["High"]),
-                low=float(row["Low"]),
-                close=float(row["Close"]),
-                volume=int(row["Volume"]),
-                ma7=float(row["ma7"]) if pd.notna(row.get("ma7")) else None,
-                ma21=float(row["ma21"]) if pd.notna(row.get("ma21")) else None,
-            )
-            history.append(point)
-
-        prediction_result, metrics = predictor.predict(ticker, model, range.value)
-
+        data = await stock_service.get_full_stock_analysis(ticker, range, model)
+        
+        # Persistence
         user_id = get_user_id(x_user_id)
         history_service.add_search_history(user_id, ticker)
-
+        
         prediction_record = PredictionRecordSchema(
             ticker=ticker,
             model=model.value,
-            predicted_price=prediction_result.predicted_price,
-            confidence=prediction_result.confidence,
+            predicted_price=data.prediction.predicted_price,
+            confidence=data.prediction.confidence,
         )
         prediction_service.save_prediction(prediction_record)
-
-        return StockResponse(
-            ticker=ticker,
-            profile=profile,
-            history=history,
-            prediction=prediction_result,
-            metrics=metrics,
-            confidence=prediction_result.confidence,
-        )
+        
+        return data
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

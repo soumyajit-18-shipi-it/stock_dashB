@@ -32,6 +32,12 @@ export interface StockPrediction {
 export interface StockResponse {
   ticker: string;
   profile: CompanyProfile;
+  history: any[];
   prediction: StockPrediction;
+  metrics?: {
+    rmse: number;
+    mae: number;
+    r2: number;
+  };
   confidence: number;
 }

@@ -57,19 +57,29 @@ export function useWatchlist() {
 export function useSearchHistory() {
   const { setSearchHistory } = useStore();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['searchHistory'],
     queryFn: api.getSearchHistory,
   });
 
   const history = data || [];
 
+  const add = async (ticker: string) => {
+    try {
+      await api.addSearchHistory(ticker);
+      refetch();
+    } catch (err) {
+      console.error('Failed to add to search history:', err);
+    }
+  };
+
   const clear = async () => {
     await api.clearSearchHistory();
     setSearchHistory([]);
+    refetch();
   };
 
-  return { history, isLoading, clear };
+  return { history, isLoading, add, clear };
 }
 
 export function usePredictions(ticker?: string) {

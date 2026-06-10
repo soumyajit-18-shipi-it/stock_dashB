@@ -3,9 +3,9 @@ import pandas as pd
 import numpy as np
 import os
 import tempfile
-from ml.linear_model import LinearRegressionModel
-from ml.random_forest_model import RandomForestModel
-from features.engineering import FeatureEngineer
+from backend.ml.linear_model import LinearRegressionModel
+from backend.ml.random_forest_model import RandomForestModel
+from backend.features.engineering import FeatureEngineer
 
 
 class TestMLModels:

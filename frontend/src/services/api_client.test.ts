@@ -1,0 +1,76 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { api } from './api_client';
+
+// Mock fetch
+global.fetch = vi.fn();
+
+describe('API Client', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should fetch stock data from FastAPI', async () => {
+    const mockResponse = { ticker: 'AAPL', profile: {}, history: [], prediction: {}, metrics: {}, confidence: 0.9 };
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const data = await api.getStock('AAPL', '1y', 'linear');
+    expect(data).toEqual(mockResponse);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/stock/AAPL?range=1y&model=linear'), expect.any(Object));
+  });
+
+  it('should fetch watchlist from FastAPI', async () => {
+    const mockWatchlist = [{ id: '1', ticker: 'AAPL' }];
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockWatchlist),
+    });
+
+    const data = await api.getWatchlist();
+    expect(data).toEqual(mockWatchlist);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist'));
+  });
+
+  it('should add to watchlist via FastAPI', async () => {
+    const mockItem = { id: '1', ticker: 'AAPL' };
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockItem),
+    });
+
+    const data = await api.addToWatchlist('AAPL', 'Apple Inc.');
+    expect(data).toEqual(mockItem);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ ticker: 'AAPL', name: 'Apple Inc.' }),
+    }));
+  });
+
+  it('should remove from watchlist via FastAPI', async () => {
+    (fetch as any).mockResolvedValue({
+      ok: true,
+    });
+
+    await api.removeFromWatchlist('1');
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist/1'), expect.objectContaining({
+      method: 'DELETE',
+    }));
+  });
+
+  it('should throw error when FastAPI response is not ok', async () => {
+    (fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: 'Stock not found' }),
+    });
+
+    await expect(api.getStock('INVALID', '1y', 'linear')).rejects.toThrow('Stock not found');
+  });
+
+  it('should be defined', () => {
+    expect(api).toBeDefined();
+    expect(api.getWatchlist).toBeDefined();
+    expect(api.getStock).toBeDefined();
+  });
+});
