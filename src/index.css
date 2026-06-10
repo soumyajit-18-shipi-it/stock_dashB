@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Glass effect */
+.glass {
+  @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-xl;
+}
+
+.dark .glass {
+  @apply bg-slate-800/30 border-slate-500/30;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }

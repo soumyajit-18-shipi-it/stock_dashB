@@ -12,21 +12,9 @@ export interface StockPricePoint {
   ma7?: number;
   ma21?: number;
 }
-
-export interface CompanyProfile {
-  ticker: string;
-  name?: string;
-  sector?: string;
-  industry?: string;
-  market_cap?: number;
-  current_price?: number;
-  previous_close?: number;
-  currency?: string;
-  exchange?: string;
-  country?: string;
-  week_52_high?: number;
-  week_52_low?: number;
-}
+// Re-export shared contract types
+import type { CompanyProfile } from "../shared/stockContract";
+export type { CompanyProfile };
 
 export interface PredictionResult {
   predicted_price: number;

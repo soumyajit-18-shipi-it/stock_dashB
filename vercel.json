@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "npm run build",
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://<YOUR_SUPABASE_PROJECT>.supabase.co/functions/v1/stock-analysis/$1"
+    }
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "https://<YOUR_SUPABASE_PROJECT>.supabase.co/functions/v1"
+  }
+}

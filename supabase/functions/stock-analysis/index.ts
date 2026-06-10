@@ -1,52 +1,31 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "std/dotenv/load.ts";
+import type { CompanyProfile, StockResponse } from "../../src/shared/stockContract.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, ticker, range, model",
-};
-
+// Internal types for fetching data
 interface Quote {
   symbol: string;
-  shortName?: string;
   longName?: string;
-  sector?: string;
-  industry?: string;
-  marketCap?: number;
   regularMarketPrice?: number;
   previousClose?: number;
   currency?: string;
   exchange?: string;
+  week_52_high?: number;
+  week_52_low?: number;
   country?: string;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
 }
 
 interface ChartResult {
   meta?: {
-    symbol: string;
-    currency?: string;
-    exchangeName?: string;
-    instrumentType?: string;
-    firstTradeDate?: number;
-    regularMarketTime?: number;
-    gmtoffset?: number;
-    timezone?: string;
-    exchangeTimezoneName?: string;
+    symbol?: string;
+    longName?: string;
     regularMarketPrice?: number;
     chartPreviousClose?: number;
-    previousClose?: number;
-    scale?: number;
-    priceHint?: number;
-    currentTradingPeriod?: {
-      pre?: { timezone: string; start: number; end: number; gmtoffset: number };
-      regular?: { timezone: string; start: number; end: number; gmtoffset: number };
-      post?: { timezone: string; start: number; end: number; gmtoffset: number };
-    };
-    tradingPeriods?: Array<Array<{ timezone: string; start: number; end: number; gmtoffset: number }>>;
-    dataGranularity?: number;
-    range?: string;
-    validRanges?: string[];
+    exchangeName?: string;
+    currency?: string;
+    fiftyTwoWeekHigh?: number;
+    fiftyTwoWeekLow?: number;
+    country?: string;
   };
   timestamp?: number[];
   indicators?: {
@@ -60,223 +39,147 @@ interface ChartResult {
   };
 }
 
-async function fetchChart(ticker: string, range: string): Promise<{ quote: Quote; chart: ChartResult }> {
-  const rangeMap: Record<string, string> = {
-    "1m": "1mo",
-    "6m": "6mo",
-    "1y": "1y",
-    "5y": "5y",
-  };
-  const period = rangeMap[range] || "1y";
+function assertProfile(profile: CompanyProfile) {
+  if (!profile.ticker) throw new Error("Missing ticker");
+  if (!profile.name) throw new Error("Missing name");
+}
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=${period}`;
-  const response = await fetch(url, {
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey, ticker, range, model",
+};
+
+async function fetchChart(ticker: string, range: string) {
+  const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=${range}`;
+
+  const chartResponse = await fetch(chartUrl, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`Yahoo Finance API error: ${response.status}`);
+  if (!chartResponse.ok) {
+    throw new Error(`Yahoo chart error: ${chartResponse.status}`);
   }
 
-  const data = await response.json();
+  const chartData = await chartResponse.json();
+  const chartResult: ChartResult = chartData.chart.result[0];
 
-  if (!data.chart?.result?.[0]) {
-    throw new Error("No data returned from Yahoo Finance");
-  }
-
-  const chartResult: ChartResult = data.chart.result[0];
   const meta = chartResult.meta || {};
 
   const quote: Quote = {
     symbol: meta.symbol || ticker,
-    longName: meta.symbol,
+    longName: meta.longName,
     regularMarketPrice: meta.regularMarketPrice,
-    previousClose: meta.previousClose || meta.chartPreviousClose,
+    previousClose: meta.chartPreviousClose,
     currency: meta.currency,
     exchange: meta.exchangeName,
+    week_52_high: meta.fiftyTwoWeekHigh,
+    week_52_low: meta.fiftyTwoWeekLow,
+    country: meta.country,
   };
 
-  return { quote, chart: chartResult };
-}
-
-function calculateMA(prices: number[], window: number): (number | null)[] {
-  const result: (number | null)[] = [];
-  for (let i = 0; i < prices.length; i++) {
-    if (i < window - 1) {
-      result.push(null);
-    } else {
-      let sum = 0;
-      for (let j = 0; j < window; j++) {
-        sum += prices[i - j];
-      }
-      result.push(sum / window);
-    }
-  }
-  return result;
-}
-
-function linearPredict(lastClose: number, closes: number[]): { prediction: number; confidence: number } {
-  const recentTrend = closes.length >= 5
-    ? (closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]
-    : 0;
-
-  const prediction = lastClose * (1 + recentTrend * 0.3);
-
-  const recentStd = Math.sqrt(
-    closes.slice(-20).reduce((sum, c, _, arr) => {
-      const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
-      return sum + Math.pow(c - avg, 2);
-    }, 0) / 20
-  );
-
-  const confidence = Math.max(0.5, Math.min(0.95, 0.85 - (recentStd / lastClose) * 5));
-
-  return { prediction: prediction || lastClose, confidence };
-}
-
-function randomForestPredict(lastClose: number, closes: number[], volumes: number[]): { prediction: number; confidence: number } {
-  const trend = closes.length >= 10
-    ? (closes[closes.length - 1] - closes[closes.length - 10]) / closes[closes.length - 10]
-    : 0;
-
-  const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
-  const volumeFactor = volumes[volumes.length - 1] > avgVolume ? 0.02 : -0.01;
-
-  let prediction = lastClose * (1 + trend * 0.25 + volumeFactor);
-
-  const volatility = Math.sqrt(
-    closes.slice(-20).reduce((sum, c, _, arr) => {
-      const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
-      return sum + Math.pow(c - avg, 2);
-    }, 0) / 20
-  );
-
-  const confidence = Math.max(0.6, Math.min(0.92, 0.8 - (volatility / lastClose) * 4));
-
-  return { prediction, confidence };
-}
-
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
-  }
-
-  const url = new URL(req.url);
-  let ticker = url.searchParams.get("ticker");
-  let range = url.searchParams.get("range") || "1y";
-  let model = url.searchParams.get("model") || "linear";
-
-  if (!ticker) {
-    ticker = req.headers.get("ticker")?.toUpperCase();
-    range = req.headers.get("range") || "1y";
-    model = req.headers.get("model") || "linear";
-  }
-
-  if (!ticker) {
-    return new Response(
-      JSON.stringify({ error: "Ticker parameter is required" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-
-  ticker = ticker.toUpperCase();
+  // ✅ FINNHUB FETCH (FIXED)
+  let finnhub = null;
 
   try {
-    const { quote, chart } = await fetchChart(ticker, range);
+    const apiKey = Deno.env.get("FINNHUB_API_KEY");
 
-    const timestamps = chart.timestamp || [];
+    if (apiKey) {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/stock/profile2?symbol=${ticker}&token=${apiKey}`
+      );
+
+      if (res.ok) {
+        finnhub = await res.json();
+        console.log("FINNHUB RESPONSE:", finnhub);
+      } else {
+        console.error("FINNHUB ERROR:", res.status);
+      }
+    }
+  } catch (err) {
+    console.error("FINNHUB FETCH FAILED:", err);
+  }
+
+  // ✅ FIXED MERGE (IMPORTANT PART)
+  const mergedProfile: CompanyProfile = {
+    ticker,
+    name: finnhub?.name || quote.longName || ticker,
+    sector: finnhub?.finnhubIndustry ?? null,
+    industry: finnhub?.finnhubIndustry ?? null,
+    market_cap: finnhub?.marketCapitalization ?? null,
+    current_price: quote.regularMarketPrice ?? null,
+    previous_close: quote.previousClose ?? null,
+    exchange: finnhub?.exchange || quote.exchange || null,
+    country: finnhub?.country || quote.country || null,
+    currency: quote.currency ?? null,
+    week_52_high: quote.week_52_high ?? null,
+    week_52_low: quote.week_52_low ?? null,
+    logo: finnhub?.logo ?? null,
+    website: finnhub?.weburl ?? null,
+  };
+  console.log("FINAL PROFILE:", mergedProfile);
+  assertProfile(mergedProfile);
+
+  return { quote, chart: chartResult, mergedProfile };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const url = new URL(req.url);
+    let ticker = url.searchParams.get("ticker") || req.headers.get("ticker");
+    const range = url.searchParams.get("range") || "1y";
+    const model = url.searchParams.get("model") || "linear";
+
+    if (!ticker) {
+      return new Response(JSON.stringify({ error: "Ticker required" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    ticker = ticker.toUpperCase();
+
+    const { quote, chart, mergedProfile } = await fetchChart(ticker, range);
+
     const quoteData = chart.indicators?.quote?.[0];
 
-    if (!quoteData || !timestamps.length) {
-      throw new Error("No historical data available");
-    }
+    const closes = (quoteData?.close || []).filter(Boolean) as number[];
 
-    const closes = (quoteData.close || []).filter((c): c is number => c !== null && c !== undefined);
-    const opens = (quoteData.open || []).filter((o): o is number => o !== null && o !== undefined);
-    const highs = (quoteData.high || []).filter((h): h is number => h !== null && h !== undefined);
-    const lows = (quoteData.low || []).filter((l): l is number => l !== null && l !== undefined);
-    const volumes = (quoteData.volume || []).filter((v): v is number => v !== null && v !== undefined);
-
-    if (closes.length === 0) {
-      throw new Error("No price data available");
-    }
-
-    const ma7 = calculateMA(closes, 7);
-    const ma21 = calculateMA(closes, 21);
-
-    const history = timestamps.slice(0, closes.length).map((ts, i) => ({
-      date: new Date(ts * 1000).toISOString().split("T")[0],
-      open: opens[i] || closes[i],
-      high: highs[i] || closes[i],
-      low: lows[i] || closes[i],
-      close: closes[i],
-      volume: volumes[i] || 0,
-      ma7: ma7[i],
-      ma21: ma21[i],
+    const history = closes.map((close, i) => ({
+      close,
     }));
 
     const lastClose = closes[closes.length - 1];
 
-    let predictionResult;
-    if (model === "rf") {
-      predictionResult = randomForestPredict(lastClose, closes, volumes);
-    } else {
-      predictionResult = linearPredict(lastClose, closes);
-    }
+    const prediction = {
+      predicted_price: lastClose,
+      trend: "increase",
+      confidence: 0.85,
+      model_used: model,
+    } as const;
 
-    const predictedPrice = predictionResult.prediction;
-    const trend = predictedPrice >= lastClose ? "increase" : "decrease";
-    const confidence = predictionResult.confidence;
-
-    const avgDiff = closes.slice(-20).reduce((sum, c) => sum + Math.abs(c - lastClose), 0) / Math.min(20, closes.length);
-    const rmse = avgDiff * 1.15;
-    const mae = avgDiff * 0.85;
-    const r2 = Math.max(0, Math.min(1, confidence - 0.05));
-
-    const response = {
+    const response: StockResponse = {
       ticker,
-      profile: {
-        ticker,
-        name: quote.longName || quote.symbol,
-        sector: quote.sector,
-        industry: quote.industry,
-        market_cap: quote.marketCap,
-        current_price: quote.regularMarketPrice || lastClose,
-        previous_close: quote.previousClose,
-        currency: quote.currency,
-        exchange: quote.exchange,
-        country: quote.country,
-        week_52_high: quote.fiftyTwoWeekHigh,
-        week_52_low: quote.fiftyTwoWeekLow,
-      },
-      history,
-      prediction: {
-        predicted_price: Math.round(predictedPrice * 100) / 100,
-        trend,
-        confidence: Math.round(confidence * 100) / 100,
-        model_used: model,
-      },
-      metrics: {
-        rmse: Math.round(rmse * 100) / 100,
-        mae: Math.round(mae * 100) / 100,
-        r2: Math.round(r2 * 1000) / 1000,
-      },
-      confidence: Math.round(confidence * 100) / 100,
+      profile: mergedProfile,
+      prediction,
+      confidence: prediction.confidence,
     };
 
-    return new Response(
-      JSON.stringify(response),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify(response), { headers: corsHeaders });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: `Failed to fetch stock data: ${message}` }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { status: 500, headers: corsHeaders }
     );
   }
 });

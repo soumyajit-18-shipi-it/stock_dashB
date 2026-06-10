@@ -6,7 +6,7 @@ interface CompanyProfileCardProps {
 }
 
 function formatMarketCap(value?: number): string {
-  if (!value) return 'N/A';
+  if (!value) return 'Not Available';
   if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
   if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
   if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
@@ -15,7 +15,7 @@ function formatMarketCap(value?: number): string {
 
 export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
+    <div className="glass rounded-xl border border-slate-700 p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-white">{profile.name || profile.ticker}</h2>
@@ -31,13 +31,13 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
         <div className="bg-slate-700/50 rounded-lg p-3">
           <p className="text-slate-400 text-xs mb-1">Current Price</p>
           <p className="text-xl font-bold text-white">
-            {profile.current_price ? `$${profile.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
+            {profile.current_price ? `$${profile.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not Available'}
           </p>
         </div>
         <div className="bg-slate-700/50 rounded-lg p-3">
           <p className="text-slate-400 text-xs mb-1">Previous Close</p>
           <p className="text-xl font-bold text-white">
-            {profile.previous_close ? `$${profile.previous_close.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
+            {profile.previous_close ? `$${profile.previous_close.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not Available'}
           </p>
         </div>
       </div>
@@ -47,14 +47,14 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
           <Building2 className="h-4 w-4 text-slate-400" />
           <div>
             <span className="text-slate-400">Sector:</span>{' '}
-            <span className="text-white">{profile.sector || 'N/A'}</span>
+            <span className="text-white">{profile.sector || 'Not Available'}</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <TrendingUp className="h-4 w-4 text-slate-400" />
           <div>
             <span className="text-slate-400">Industry:</span>{' '}
-            <span className="text-white">{profile.industry || 'N/A'}</span>
+            <span className="text-white">{profile.industry || 'Not Available'}</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -68,8 +68,8 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
           <Globe className="h-4 w-4 text-slate-400" />
           <div>
             <span className="text-slate-400">Exchange:</span>{' '}
-            <span className="text-white">{profile.exchange || 'N/A'}</span>
-            {profile.currency && <span className="text-slate-400"> ({profile.currency})</span>}
+            <span className="text-white">{profile.exchange || 'Not Available'}</span>
+            {profile.currency ? <span className="text-slate-400"> ({profile.currency})</span> : <span className="text-slate-400"> (Not Available)</span>}
           </div>
         </div>
         {profile.country && (
@@ -87,13 +87,13 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
         <div>
           <p className="text-slate-400 text-xs">52W High</p>
           <p className="text-emerald-400 font-semibold">
-            {profile.week_52_high ? `$${profile.week_52_high.toFixed(2)}` : 'N/A'}
+            {profile.week_52_high ? `$${profile.week_52_high.toFixed(2)}` : 'Not Available'}
           </p>
         </div>
         <div>
           <p className="text-slate-400 text-xs">52W Low</p>
           <p className="text-red-400 font-semibold">
-            {profile.week_52_low ? `$${profile.week_52_low.toFixed(2)}` : 'N/A'}
+            {profile.week_52_low ? `$${profile.week_52_low.toFixed(2)}` : 'Not Available'}
           </p>
         </div>
       </div>
