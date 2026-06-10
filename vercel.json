@@ -1,19 +1,14 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "npm run build",
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
+      "source": "/api/(.*)",
+      "destination": "https://<YOUR_SUPABASE_PROJECT>.supabase.co/functions/v1/stock-analysis/$1"
+    },
     {
-      "src": "/api/(.*)",
-      "dest": "https://<YOUR_SUPABASE_PROJECT>.supabase.co/functions/v1/stock-analysis/$1"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "env": {

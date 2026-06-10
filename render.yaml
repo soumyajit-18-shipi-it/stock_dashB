@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: stock-dashboard-backend
+    env: python
+    # We run from the root directory because backend/main.py uses relative imports
+    # like 'from .api.routes import router', which requires 'backend' to be a package.
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      # Render's default Python version is too old for pandas 2.x and scikit-learn 1.x
+      # We explicitly set a modern Python version to prevent build failures.
+      - key: PYTHON_VERSION
+        value: "3.11.8"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
