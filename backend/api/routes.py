@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Header
 from typing import List, Optional, Dict, Any
-from ..schemas import (
+from schemas import (
     StockResponse,
     CompanyProfile,
     StockPricePoint,
@@ -14,9 +14,9 @@ from ..schemas import (
     DateRangeEnum,
     ModelEnum,
 )
-from ..services.stock_service import stock_service
-from ..services import WatchlistService, HistoryService, PredictionService
-from ..schemas import PredictionRecord as PredictionRecordSchema
+from services.stock_service import stock_service
+from services import WatchlistService, HistoryService, PredictionService
+from schemas import PredictionRecord as PredictionRecordSchema
 
 
 router = APIRouter()

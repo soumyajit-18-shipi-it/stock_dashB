@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
-from .cache import DataCache
+from data.cache import DataCache
 
 
 class StockDataProvider:

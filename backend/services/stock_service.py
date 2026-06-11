@@ -2,11 +2,11 @@ import pandas as pd
 import time
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
-from ..data.provider import StockDataProvider
-from ..features.engineering import FeatureEngineer
-from ..ml.predictor import StockPredictor
-from .finnhub_service import finnhub_service
-from ..schemas import (
+from data.provider import StockDataProvider
+from features.engineering import FeatureEngineer
+from ml.predictor import StockPredictor
+from services.finnhub_service import finnhub_service
+from schemas import (
     StockResponse,
     CompanyProfile,
     StockPricePoint,

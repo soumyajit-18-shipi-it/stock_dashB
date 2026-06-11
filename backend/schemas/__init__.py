@@ -1,4 +1,4 @@
-from .stock_schema import *
+from schemas.stock_schema import *
 
 __all__ = [
     "DateRangeEnum",

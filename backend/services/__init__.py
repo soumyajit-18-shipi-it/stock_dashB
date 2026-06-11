@@ -1,5 +1,5 @@
-from .watchlist_service import WatchlistService
-from .history_service import HistoryService
-from .prediction_service import PredictionService
+from services.watchlist_service import WatchlistService
+from services.history_service import HistoryService
+from services.prediction_service import PredictionService
 
 __all__ = ["WatchlistService", "HistoryService", "PredictionService"]

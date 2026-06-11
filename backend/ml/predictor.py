@@ -2,12 +2,12 @@ import os
 from typing import Dict, Tuple, Optional
 import pandas as pd
 import numpy as np
-from ..data.provider import StockDataProvider
-from ..features.engineering import FeatureEngineer
-from .base_model import BaseModel
-from .linear_model import LinearRegressionModel
-from .random_forest_model import RandomForestModel
-from ..schemas import ModelEnum, TrendDirection, PredictionResult, ModelMetrics
+from data.provider import StockDataProvider
+from features.engineering import FeatureEngineer
+from ml.base_model import BaseModel
+from ml.linear_model import LinearRegressionModel
+from ml.random_forest_model import RandomForestModel
+from schemas import ModelEnum, TrendDirection, PredictionResult, ModelMetrics
 
 
 class StockPredictor:

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
-from ..database.supabase_client import get_supabase_client
-from ..schemas import SearchHistoryItem
+from database.supabase_client import get_supabase_client
+from schemas import SearchHistoryItem
 
 
 class HistoryService:

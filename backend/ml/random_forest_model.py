@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from .base_model import BaseModel
+from ml.base_model import BaseModel
 
 
 class RandomForestModel(BaseModel):

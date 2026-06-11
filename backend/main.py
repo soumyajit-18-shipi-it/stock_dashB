@@ -1,11 +1,17 @@
 import logging
 import json
 import time
+import os
+import sys
 from typing import Any
+
+# Add the current directory to Python path to support absolute imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from .api.routes import router
-from .core.config import settings
+from api.routes import router
+from core.config import settings
 
 # Structured Logging Setup
 class JSONFormatter(logging.Formatter):
@@ -69,3 +75,9 @@ async def root():
         "docs": "/docs",
         "health": f"{settings.API_V1_STR}/health"
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

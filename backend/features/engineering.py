@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import List, Tuple
-from .technical_indicators import TechnicalIndicators
+from features.technical_indicators import TechnicalIndicators
 
 
 class FeatureEngineer:

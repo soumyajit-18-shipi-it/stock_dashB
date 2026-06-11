@@ -1,6 +1,6 @@
 import httpx
 from typing import Dict, Any, Optional
-from ..core.config import settings
+from core.config import settings
 import time
 
 class FinnhubService:

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
-from ..database.supabase_client import get_supabase_client
-from ..schemas import WatchlistItem, WatchlistCreate
+from database.supabase_client import get_supabase_client
+from schemas import WatchlistItem, WatchlistCreate
 
 
 class WatchlistService:
