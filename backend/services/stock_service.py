@@ -77,21 +77,26 @@ class StockService:
 
     def _merge_profile_data(self, ticker: str, yahoo: Dict[str, Any], finnhub: Optional[Dict[str, Any]], df: pd.DataFrame) -> CompanyProfile:
         finnhub = finnhub or {}
+        meta = df.attrs.get("metadata", {})
         last_close = float(df["Close"].iloc[-1]) if not df.empty else None
+        
+        # Calculate market cap if possible since chart meta doesn't provide it
+        # Market cap is often available in yahoo info (search API) for some tickers, or we fallback
+        market_cap = yahoo.get("marketCap") or (finnhub.get("marketCapitalization", 0) * 1000000 if finnhub.get("marketCapitalization") else None)
         
         return CompanyProfile(
             ticker=ticker,
-            name=finnhub.get("name") or yahoo.get("longName") or yahoo.get("shortName") or ticker,
-            sector=finnhub.get("finnhubIndustry") or yahoo.get("sector"),
-            industry=finnhub.get("finnhubIndustry") or yahoo.get("industry"),
-            market_cap=yahoo.get("marketCap") or (finnhub.get("marketCapitalization", 0) * 1000000 if finnhub.get("marketCapitalization") else None),
-            current_price=yahoo.get("currentPrice") or yahoo.get("regularMarketPrice") or last_close,
-            previous_close=yahoo.get("previousClose") or yahoo.get("regularMarketPreviousClose"),
-            currency=yahoo.get("currency") or "USD",
-            exchange=finnhub.get("exchange") or yahoo.get("exchange"),
+            name=meta.get("longName") or finnhub.get("name") or yahoo.get("longName") or ticker,
+            sector=yahoo.get("sector") or finnhub.get("finnhubIndustry"),
+            industry=yahoo.get("industry") or finnhub.get("finnhubIndustry"),
+            market_cap=market_cap,
+            current_price=meta.get("regularMarketPrice") or last_close,
+            previous_close=meta.get("previousClose") or yahoo.get("previousClose"),
+            currency=meta.get("currency") or yahoo.get("currency") or "USD",
+            exchange=meta.get("exchangeName") or yahoo.get("exchange") or finnhub.get("exchange"),
             country=finnhub.get("country") or yahoo.get("country"),
-            week_52_high=yahoo.get("fiftyTwoWeekHigh"),
-            week_52_low=yahoo.get("fiftyTwoWeekLow")
+            week_52_high=meta.get("fiftyTwoWeekHigh") or yahoo.get("fiftyTwoWeekHigh"),
+            week_52_low=meta.get("fiftyTwoWeekLow") or yahoo.get("fiftyTwoWeekLow")
         )
 
     def _format_history(self, df: pd.DataFrame) -> List[StockPricePoint]:
