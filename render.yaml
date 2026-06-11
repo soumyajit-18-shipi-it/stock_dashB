@@ -10,7 +10,7 @@ services:
       # Render's default Python version is too old for pandas 2.x and scikit-learn 1.x
       # We explicitly set a modern Python version to prevent build failures.
       - key: PYTHON_VERSION
-        value: "3.11.8"
+        value: "3.12.10"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
