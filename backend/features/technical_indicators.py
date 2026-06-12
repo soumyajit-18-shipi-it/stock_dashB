@@ -1,11 +1,11 @@
 import pandas as pd
-import numpy as np
-from typing import Dict, Any
 
 
 class TechnicalIndicators:
     @staticmethod
-    def add_moving_average(df: pd.DataFrame, column: str = "Close", window: int = 7) -> pd.Series:
+    def add_moving_average(
+        df: pd.DataFrame, column: str = "Close", window: int = 7
+    ) -> pd.Series:
         return df[column].rolling(window=window).mean()
 
     @staticmethod

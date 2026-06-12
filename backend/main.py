@@ -1,17 +1,17 @@
-import logging
 import json
-import time
+import logging
 import os
 import sys
-from typing import Any
+import time
 
 # Add the current directory to Python path to support absolute imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from core.config import settings
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Structured Logging Setup
 class JSONFormatter(logging.Formatter):
@@ -25,6 +25,7 @@ class JSONFormatter(logging.Formatter):
         if hasattr(record, "extra_info"):
             log_obj.update(record.extra_info)
         return json.dumps(log_obj)
+
 
 logger = logging.getLogger("stock_dashboard")
 handler = logging.StreamHandler()
@@ -48,24 +49,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     duration = (time.time() - start_time) * 1000
-    
+
     logger.info(
         f"Request: {request.method} {request.url.path}",
-        extra={"extra_info": {
-            "method": request.method,
-            "path": request.url.path,
-            "duration_ms": duration,
-            "status_code": response.status_code
-        }}
+        extra={
+            "extra_info": {
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration,
+                "status_code": response.status_code,
+            }
+        },
     )
     return response
 
+
 app.include_router(router, prefix=settings.API_V1_STR)
+
 
 @app.get("/")
 async def root():
@@ -73,11 +79,13 @@ async def root():
         "message": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "docs": "/docs",
-        "health": f"{settings.API_V1_STR}/health"
+        "health": f"{settings.API_V1_STR}/health",
     }
+
 
 if __name__ == "__main__":
     import uvicorn
-    import os
+
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=host, port=port)

@@ -1,10 +1,16 @@
+import os
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-from backend.main import app
 
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+)
+from backend.main import app
 
 client = TestClient(app)
 

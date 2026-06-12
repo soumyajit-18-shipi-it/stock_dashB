@@ -1,21 +1,24 @@
-import pytest
-import pandas as pd
-import numpy as np
 import os
 import tempfile
+
+import numpy as np
+import pandas as pd
+
+from backend.features.engineering import FeatureEngineer
 from backend.ml.linear_model import LinearRegressionModel
 from backend.ml.random_forest_model import RandomForestModel
-from backend.features.engineering import FeatureEngineer
 
 
 class TestMLModels:
     def setup_method(self):
         np.random.seed(42)
         n = 200
-        self.df = pd.DataFrame({
-            "Close": 100 + np.cumsum(np.random.randn(n) * 2),
-            "Volume": 1000000 + np.random.randint(-100000, 100000, n)
-        })
+        self.df = pd.DataFrame(
+            {
+                "Close": 100 + np.cumsum(np.random.randn(n) * 2),
+                "Volume": 1000000 + np.random.randint(-100000, 100000, n),
+            }
+        )
         self.engineer = FeatureEngineer()
         self.X, self.y = self.engineer.prepare_training_data(self.df)
         self.temp_dir = tempfile.mkdtemp()

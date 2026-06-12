@@ -1,6 +1,5 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
 from features.engineering import FeatureEngineer
 
 
@@ -8,10 +7,12 @@ class TestFeatureEngineer:
     def setup_method(self):
         np.random.seed(42)
         n = 100
-        self.df = pd.DataFrame({
-            "Close": 100 + np.cumsum(np.random.randn(n) * 2),
-            "Volume": 1000000 + np.random.randint(-100000, 100000, n)
-        })
+        self.df = pd.DataFrame(
+            {
+                "Close": 100 + np.cumsum(np.random.randn(n) * 2),
+                "Volume": 1000000 + np.random.randint(-100000, 100000, n),
+            }
+        )
 
     def test_prepare_features(self):
         engineer = FeatureEngineer()

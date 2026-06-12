@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vercel
+
+# Backend
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/.pytest_cache
+backend/.env
+
+# General
+venv
+.venv
+node_modules
+dist
+build
+*.log
+.DS_Store
+.bolt
+.specify
+models/
+specs/
+supabase/

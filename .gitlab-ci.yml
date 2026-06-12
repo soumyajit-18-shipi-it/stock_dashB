@@ -1,0 +1,134 @@
+stages:
+  - lint
+  - typecheck
+  - security
+  - test
+  - build
+  - release
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  NODE_CACHE_DIR: "$CI_PROJECT_DIR/.cache/npm"
+
+cache:
+  paths:
+    - .cache/pip
+    - frontend/node_modules/
+
+# ---------------------------------------------------------------------------
+# LINT STAGE
+# ---------------------------------------------------------------------------
+
+lint:python:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install ruff
+    - ruff check .
+    - ruff format --check .
+
+lint:frontend:
+  stage: lint
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run lint
+
+# ---------------------------------------------------------------------------
+# TYPECHECK STAGE
+# ---------------------------------------------------------------------------
+
+typecheck:python:
+  stage: typecheck
+  image: python:3.11-slim
+  script:
+    - pip install mypy types-python-dotenv types-requests pydantic fastapi
+    - mypy .
+
+typecheck:frontend:
+  stage: typecheck
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run typecheck
+
+# ---------------------------------------------------------------------------
+# SECURITY STAGE
+# ---------------------------------------------------------------------------
+
+security:bandit:
+  stage: security
+  image: python:3.11-slim
+  script:
+    - pip install bandit[toml]
+    - bandit -c pyproject.toml -r .
+
+security:gitleaks:
+  stage: security
+  image: 
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --verbose
+
+security:npm-audit:
+  stage: security
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm audit
+
+# ---------------------------------------------------------------------------
+# TEST STAGE
+# ---------------------------------------------------------------------------
+
+test:python:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pytest pytest-cov
+    - pytest --cov=backend --cov-report=xml --cov-report=term
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+test:frontend:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run test:run
+
+# ---------------------------------------------------------------------------
+# BUILD STAGE
+# ---------------------------------------------------------------------------
+
+build:docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+
+# ---------------------------------------------------------------------------
+# RELEASE STAGE
+# ---------------------------------------------------------------------------
+
+release:tag:
+  stage: release
+  image: node:18-alpine
+  script:
+    - npm install -g git-cliff
+    - git-cliff --output CHANGELOG.md
+  only:
+    - tags

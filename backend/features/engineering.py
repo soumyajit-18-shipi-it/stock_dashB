@@ -1,6 +1,4 @@
 import pandas as pd
-import numpy as np
-from typing import List, Tuple
 from features.technical_indicators import TechnicalIndicators
 
 
@@ -21,13 +19,22 @@ class FeatureEngineer:
         df = df.dropna()
         return df
 
-    def get_feature_columns(self) -> List[str]:
+    def get_feature_columns(self) -> list[str]:
         return [
-            "Close", "Volume", "ma7", "ma21", "returns",
-            "lag1", "lag2", "lag3", "lag4", "lag5", "volume_change"
+            "Close",
+            "Volume",
+            "ma7",
+            "ma21",
+            "returns",
+            "lag1",
+            "lag2",
+            "lag3",
+            "lag4",
+            "lag5",
+            "volume_change",
         ]
 
-    def prepare_training_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+    def prepare_training_data(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         df = self.prepare_features(df)
         feature_cols = self.get_feature_columns()
         X = df[feature_cols].copy()

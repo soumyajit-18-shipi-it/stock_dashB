@@ -1,5 +1,3 @@
-from typing import List, Optional
-from datetime import datetime
 from database.supabase_client import get_supabase_client
 from schemas import PredictionRecord
 
@@ -8,7 +6,9 @@ class PredictionService:
     def __init__(self):
         self.client = get_supabase_client()
 
-    def get_predictions(self, ticker: Optional[str] = None, limit: int = 100) -> List[PredictionRecord]:
+    def get_predictions(
+        self, ticker: str | None = None, limit: int = 100
+    ) -> list[PredictionRecord]:
         query = self.client.table("predictions").select("*")
         if ticker:
             query = query.eq("ticker", ticker)
@@ -27,5 +27,10 @@ class PredictionService:
         return PredictionRecord(**response.data[0])
 
     def update_actual_price(self, prediction_id: str, actual_price: float) -> bool:
-        response = self.client.table("predictions").update({"actual_price": actual_price}).eq("id", prediction_id).execute()
+        response = (
+            self.client.table("predictions")
+            .update({"actual_price": actual_price})
+            .eq("id", prediction_id)
+            .execute()
+        )
         return len(response.data) > 0

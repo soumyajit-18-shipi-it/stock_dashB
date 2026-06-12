@@ -1,13 +1,12 @@
 import os
-from typing import Dict, Tuple, Optional
+
 import pandas as pd
-import numpy as np
 from data.provider import StockDataProvider
 from features.engineering import FeatureEngineer
 from ml.base_model import BaseModel
 from ml.linear_model import LinearRegressionModel
 from ml.random_forest_model import RandomForestModel
-from schemas import ModelEnum, TrendDirection, PredictionResult, ModelMetrics
+from schemas import ModelEnum, ModelMetrics, PredictionResult, TrendDirection
 
 
 class StockPredictor:
@@ -20,7 +19,7 @@ class StockPredictor:
     def __init__(self):
         self.data_provider = StockDataProvider()
         self.feature_engineer = FeatureEngineer()
-        self.models: Dict[str, BaseModel] = {
+        self.models: dict[str, BaseModel] = {
             ModelEnum.LINEAR.value: LinearRegressionModel(),
             ModelEnum.RANDOM_FOREST.value: RandomForestModel(),
         }
@@ -67,8 +66,8 @@ class StockPredictor:
         self,
         ticker: str,
         model_type: ModelEnum = ModelEnum.LINEAR,
-        range_key: str = "1y"
-    ) -> Tuple[PredictionResult, ModelMetrics]:
+        range_key: str = "1y",
+    ) -> tuple[PredictionResult, ModelMetrics]:
         df = self.data_provider.get_stock_data(ticker, range_key)
 
         model = self.get_or_train_model(model_type, df)
@@ -78,14 +77,18 @@ class StockPredictor:
         predicted_price = float(prediction[0])
 
         last_close = df["Close"].iloc[-1]
-        trend = TrendDirection.INCREASE if predicted_price > last_close else TrendDirection.DECREASE
+        trend = (
+            TrendDirection.INCREASE
+            if predicted_price > last_close
+            else TrendDirection.DECREASE
+        )
         confidence = model.get_confidence_score()
 
         result = PredictionResult(
             predicted_price=round(predicted_price, 4),
             trend=trend,
             confidence=round(confidence, 4),
-            model_used=model_type.value
+            model_used=model_type.value,
         )
 
         metrics = ModelMetrics(**model.metrics)

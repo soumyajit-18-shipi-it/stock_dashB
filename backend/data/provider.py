@@ -1,8 +1,8 @@
-import pandas as pd
 import time
+from typing import Any
+
+import pandas as pd
 import requests
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
 from data.cache import DataCache
 
 
@@ -31,7 +31,9 @@ class StockDataProvider:
             return self._crumb
         try:
             self.session.get("https://finance.yahoo.com/", timeout=10)
-            res = self.session.get("https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=10)
+            res = self.session.get(
+                "https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=10
+            )
             if res.status_code == 200:
                 self._crumb = res.text
             return self._crumb or ""
@@ -60,30 +62,34 @@ class StockDataProvider:
             meta = result.get("meta", {})
             timestamps = result.get("timestamp", [])
             indicators = result.get("indicators", {}).get("quote", [{}])[0]
-            
+
             if not timestamps:
                 raise ValueError(f"No historical data found for ticker: {ticker}")
 
-            df = pd.DataFrame({
-                "Open": indicators.get("open", []),
-                "High": indicators.get("high", []),
-                "Low": indicators.get("low", []),
-                "Close": indicators.get("close", []),
-                "Volume": indicators.get("volume", [])
-            }, index=pd.to_datetime(timestamps, unit="s"))
-            
+            df = pd.DataFrame(
+                {
+                    "Open": indicators.get("open", []),
+                    "High": indicators.get("high", []),
+                    "Low": indicators.get("low", []),
+                    "Close": indicators.get("close", []),
+                    "Volume": indicators.get("volume", []),
+                },
+                index=pd.to_datetime(timestamps, unit="s"),
+            )
+
             df.index.name = "Date"
-            
+
             df.attrs["metadata"] = {
                 "longName": meta.get("longName") or meta.get("shortName"),
-                "previousClose": meta.get("previousClose") or meta.get("chartPreviousClose"),
+                "previousClose": meta.get("previousClose")
+                or meta.get("chartPreviousClose"),
                 "fiftyTwoWeekHigh": meta.get("fiftyTwoWeekHigh"),
                 "fiftyTwoWeekLow": meta.get("fiftyTwoWeekLow"),
                 "currency": meta.get("currency"),
                 "exchangeName": meta.get("exchangeName"),
-                "regularMarketPrice": meta.get("regularMarketPrice")
+                "regularMarketPrice": meta.get("regularMarketPrice"),
             }
-            
+
             df = df.dropna(subset=["Open", "High", "Low", "Close"], how="all")
             if not df.empty and pd.isna(df["Close"].iloc[-1]):
                 df = df.iloc[:-1]
@@ -94,12 +100,12 @@ class StockDataProvider:
             self.cache.set(cache_key, df)
             self.last_latency = (time.time() - start_time) * 1000
             return df
-            
+
         except Exception as e:
             self.last_latency = (time.time() - start_time) * 1000
-            raise ValueError(f"Error fetching data for {ticker}: {str(e)}")
+            raise ValueError(f"Error fetching data for {ticker}: {str(e)}") from e
 
-    def get_company_info(self, ticker: str) -> Dict[str, Any]:
+    def get_company_info(self, ticker: str) -> dict[str, Any]:
         start_time = time.time()
         cache_key = f"{ticker}_info"
         cached = self.cache.get(cache_key)
@@ -108,21 +114,25 @@ class StockDataProvider:
             return cached
 
         info = {}
-        
+
         # 1. Fetch Sector/Industry from Search API
         try:
-            url_search = f"https://query2.finance.yahoo.com/v1/finance/search?q={ticker}"
+            url_search = (
+                f"https://query2.finance.yahoo.com/v1/finance/search?q={ticker}"
+            )
             response_search = self.session.get(url_search, timeout=10)
             if response_search.status_code == 200:
                 data_search = response_search.json()
                 if data_search.get("quotes"):
                     quote_s = data_search["quotes"][0]
-                    info.update({
-                        "sector": quote_s.get("sector"),
-                        "industry": quote_s.get("industry"),
-                        "exchange": quote_s.get("exchange"),
-                        "type": quote_s.get("quoteType")
-                    })
+                    info.update(
+                        {
+                            "sector": quote_s.get("sector"),
+                            "industry": quote_s.get("industry"),
+                            "exchange": quote_s.get("exchange"),
+                            "type": quote_s.get("quoteType"),
+                        }
+                    )
         except Exception:
             pass
 
@@ -137,7 +147,9 @@ class StockDataProvider:
                     if data_quote.get("quoteResponse", {}).get("result"):
                         quote_q = data_quote["quoteResponse"]["result"][0]
                         info["marketCap"] = quote_q.get("marketCap")
-                        info["previousClose"] = quote_q.get("regularMarketPreviousClose")
+                        info["previousClose"] = quote_q.get(
+                            "regularMarketPreviousClose"
+                        )
         except Exception:
             pass
 
@@ -151,4 +163,3 @@ class StockDataProvider:
             return not df.empty
         except Exception:
             return False
-

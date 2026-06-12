@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
-from typing import Any, Optional
 import threading
+from datetime import datetime, timedelta
+from typing import Any
 
 
 class DataCache:
@@ -17,9 +17,11 @@ class DataCache:
                     cls._instance._ttl = 300
         return cls._instance
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         if key in self._cache:
-            if datetime.now() - self._timestamps.get(key, datetime.min) < timedelta(seconds=self._ttl):
+            if datetime.now() - self._timestamps.get(key, datetime.min) < timedelta(
+                seconds=self._ttl
+            ):
                 return self._cache[key]
             else:
                 del self._cache[key]
