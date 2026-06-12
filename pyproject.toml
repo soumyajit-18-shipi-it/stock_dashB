@@ -1,0 +1,81 @@
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+explicit_package_bases = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "backend.database.supabase_client"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "yfinance.*",
+    "pandas.*",
+    "numpy.*",
+    "sklearn.*",
+    "joblib.*",
+    "supabase.*",
+    "plotly.*",
+    "fastapi.*",
+    "pydantic.*",
+    "pydantic_settings.*",
+    "uvicorn.*",
+    "requests.*",
+    "dotenv.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "backend/tests",
+]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"] # assert_used
+
+[tool.vulture]
+exclude = ["tests"]
+min_confidence = 80
+paths = ["backend"]
+
+[tool.pylint]
+max-line-length = 88
+good-names = ["i", "j", "k", "ex", "Run", "_", "X", "y", "df", "id", "X_train", "X_test", "y_train", "y_test", "X_pred"]
+max-locals = 20
+disable = [
+    "C0114", # missing-module-docstring
+    "C0115", # missing-class-docstring
+    "C0116", # missing-function-docstring
+    "E0401", # import-error
+    "R0903", # too-few-public-methods
+    "W1203", # logging-fstring-interpolation
+    "W0718", # broad-exception-caught
+    "R0801", # duplicate-code
+]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203, W503"
+exclude = ".git,__pycache__,docs/source/conf.py,old,build,dist,.venv313,venv"

@@ -1,0 +1,30 @@
+rules:
+  - id: python-security-best-practices
+    patterns:
+      - pattern: |
+          eval(...)
+      - pattern: |
+          exec(...)
+    message: Use of eval or exec is dangerous.
+    severity: ERROR
+    languages: [python]
+
+  - id: fastapi-security-missing-dependency
+    patterns:
+      - pattern: |
+          @app.$METHOD(...)
+          def $FUNC(...):
+              ...
+    message: Consider using security dependencies in FastAPI.
+    severity: WARNING
+    languages: [python]
+
+  - id: general-hardcoded-secrets
+    patterns:
+      - pattern: |
+          $VAR = "sk-..."
+      - pattern: |
+          $VAR = "AIza..."
+    message: Potential hardcoded secret detected.
+    severity: ERROR
+    languages: [python, javascript, typescript]

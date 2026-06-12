@@ -1,35 +1,23 @@
-from datetime import datetime, timedelta
-from typing import Any, Optional
-import threading
+from typing import Any
 
 
 class DataCache:
-    _instance = None
-    _lock = threading.Lock()
+    def __init__(self) -> None:
+        self._cache: dict[str, Any] | None = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._cache = {}
-                    cls._instance._timestamps = {}
-                    cls._instance._ttl = 300
-        return cls._instance
+    def get_cache(self) -> dict[str, Any]:
+        if self._cache is not None:
+            return self._cache
+        self._cache = {}
+        return self._cache
 
-    def get(self, key: str) -> Optional[Any]:
-        if key in self._cache:
-            if datetime.now() - self._timestamps.get(key, datetime.min) < timedelta(seconds=self._ttl):
-                return self._cache[key]
-            else:
-                del self._cache[key]
-                del self._timestamps[key]
-        return None
+    def get(self, key: str) -> Any:
+        cache = self.get_cache()
+        return cache.get(key)
 
     def set(self, key: str, value: Any) -> None:
-        self._cache[key] = value
-        self._timestamps[key] = datetime.now()
+        cache = self.get_cache()
+        cache[key] = value
 
     def clear(self) -> None:
-        self._cache.clear()
-        self._timestamps.clear()
+        self._cache = None

@@ -1,0 +1,38 @@
+# Stage 1: Build Frontend
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Build Backend
+FROM python:3.11-slim AS backend-builder
+WORKDIR /app/backend
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Stage 3: Final Production Image
+FROM python:3.11-slim
+WORKDIR /app
+
+# Copy backend dependencies from builder
+COPY --from=backend-builder /install /usr/local
+
+# Copy frontend build from builder
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Copy backend code
+COPY backend/ ./backend/
+COPY main.py ./
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/backend
+
+# Expose port
+EXPOSE 8000
+
+# Run uvicorn
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

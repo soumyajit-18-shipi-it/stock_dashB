@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional
-import pandas as pd
+from typing import Any
+
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
 class BaseModel(ABC):
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
-        self.model = None
+        self.model: Any = None
         self.metrics = {"rmse": 0.0, "mae": 0.0, "r2": 0.0}
 
     @abstractmethod
@@ -19,11 +20,17 @@ class BaseModel(ABC):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         pass
 
-    def calculate_metrics(self, y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    def calculate_metrics(
+        self, y_true: np.ndarray, y_pred: np.ndarray
+    ) -> dict[str, float]:
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
         mae = mean_absolute_error(y_true, y_pred)
         r2 = r2_score(y_true, y_pred)
-        self.metrics = {"rmse": float(rmse), "mae": float(mae), "r2": float(r2)}
+        self.metrics = {
+            "rmse": float(rmse),
+            "mae": float(mae),
+            "r2": float(r2),
+        }
         return self.metrics
 
     def get_confidence_score(self) -> float:
