@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-yfinance
-pandas
-scikit-learn
-pytest
-pytest-asyncio
-httpx
