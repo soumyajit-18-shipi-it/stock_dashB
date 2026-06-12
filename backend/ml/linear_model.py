@@ -1,4 +1,5 @@
 import os
+from typing import cast
 
 import joblib
 import numpy as np
@@ -8,10 +9,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
 
-class LinearRegressionModel(BaseModel):
-    def __init__(self):
+class LinearRegressionModel(BaseModel):  # type: ignore[misc]
+    def __init__(self) -> None:
         super().__init__("linear")
         self.model = LinearRegression()
+        self.metrics: dict[str, float] = {}
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
         X_train, X_test, y_train, y_test = train_test_split(
@@ -22,12 +24,9 @@ class LinearRegressionModel(BaseModel):
         self.calculate_metrics(y_test.values, y_pred)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        if self.model is None:
-            raise ValueError("Model not trained")
-        return self.model.predict(X)
+        return cast(np.ndarray, self.model.predict(X))
 
     def save(self, path: str) -> None:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
         joblib.dump({"model": self.model, "metrics": self.metrics}, path)
 
     def load(self, path: str) -> bool:

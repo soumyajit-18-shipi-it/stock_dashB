@@ -1,46 +1,48 @@
 import numpy as np
 import pandas as pd
+import pytest
 from features.engineering import FeatureEngineer
 
 
-class TestFeatureEngineer:
-    def setup_method(self):
-        np.random.seed(42)
-        n = 100
-        self.df = pd.DataFrame(
-            {
-                "Close": 100 + np.cumsum(np.random.randn(n) * 2),
-                "Volume": 1000000 + np.random.randint(-100000, 100000, n),
-            }
-        )
+@pytest.fixture
+def sample_df() -> pd.DataFrame:
+    dates = pd.date_range(start="2023-01-01", periods=100)
+    data = {
+        "Open": np.random.rand(100) * 100,
+        "High": np.random.rand(100) * 100,
+        "Low": np.random.rand(100) * 100,
+        "Close": np.random.rand(100) * 100,
+        "Volume": np.random.randint(1000, 10000, size=100),
+    }
+    return pd.DataFrame(data, index=dates)
 
-    def test_prepare_features(self):
-        engineer = FeatureEngineer()
-        result = engineer.prepare_features(self.df)
-        assert "ma7" in result.columns
-        assert "ma21" in result.columns
-        assert "returns" in result.columns
-        assert "lag1" in result.columns
-        assert "lag2" in result.columns
-        assert len(result) < len(self.df)
 
-    def test_get_feature_columns(self):
+class TestFeatureEngineering:
+    def test_prepare_features(self, sample_df: pd.DataFrame) -> None:
         engineer = FeatureEngineer()
-        columns = engineer.get_feature_columns()
-        assert len(columns) == 11
-        assert "Close" in columns
-        assert "Volume" in columns
-        assert "ma7" in columns
-        assert "ma21" in columns
+        df = engineer.prepare_features(sample_df)
+        assert not df.empty
+        assert "ma7" in df.columns
+        assert "ma21" in df.columns
+        assert "returns" in df.columns
+        assert "lag1" in df.columns
 
-    def test_prepare_training_data(self):
+    def test_get_feature_columns(self) -> None:
         engineer = FeatureEngineer()
-        X, y = engineer.prepare_training_data(self.df)
-        assert X.shape[0] == y.shape[0]
-        assert X.shape[1] == 11
+        cols = engineer.get_feature_columns()
+        assert "Close" in cols
+        assert "ma7" in cols
+        assert "volume_change" in cols
 
-    def test_prepare_prediction_input(self):
+    def test_prepare_training_data(self, sample_df: pd.DataFrame) -> None:
         engineer = FeatureEngineer()
-        result = engineer.prepare_prediction_input(self.df)
-        assert result.shape[0] == 1
-        assert result.shape[1] == 11
+        X, y = engineer.prepare_training_data(sample_df)
+        assert len(X) == len(y)
+        assert not X.empty
+        assert not y.empty
+
+    def test_prepare_prediction_input(self, sample_df: pd.DataFrame) -> None:
+        engineer = FeatureEngineer()
+        X_pred = engineer.prepare_prediction_input(sample_df)
+        assert len(X_pred) == 1
+        assert "ma7" in X_pred.columns

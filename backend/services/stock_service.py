@@ -17,11 +17,11 @@ from services.finnhub_service import finnhub_service
 
 
 class StockService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.data_provider = StockDataProvider()
         self.feature_engineer = FeatureEngineer()
         self.predictor = StockPredictor()
-        self.last_metrics = {}
+        self.last_metrics: dict[str, Any] = {}
 
     async def get_full_stock_analysis(
         self,
@@ -89,7 +89,8 @@ class StockService:
         last_close = float(df["Close"].iloc[-1]) if not df.empty else None
 
         # Calculate market cap if possible since chart meta doesn't provide it
-        # Market cap is often available in yahoo info (search API) for some tickers, or we fallback
+        # Market cap is often available in yahoo info (search API) for some
+        # tickers, or we fallback
         market_cap = yahoo.get("marketCap") or (
             finnhub.get("marketCapitalization", 0) * 1000000
             if finnhub.get("marketCapitalization")
@@ -122,7 +123,7 @@ class StockService:
             history.append(
                 StockPricePoint(
                     date=idx.strftime("%Y-%m-%d")
-                    if isinstance(idx, (pd.Timestamp, datetime))
+                    if isinstance(idx, pd.Timestamp | datetime)
                     else str(idx),
                     open=float(row["Open"]),
                     high=float(row["High"]),

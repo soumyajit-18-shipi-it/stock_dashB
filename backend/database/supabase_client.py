@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -15,51 +15,56 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 _supabase_client: Any = None
 
 
+class MockResponse:
+    def __init__(self, data: Any) -> None:
+        self.data = data
+
+
 class MockTableQuery:
     # A persistent, in-memory store for mocks
-    _store: dict = {"watchlists": [], "search_history": [], "predictions": []}
+    _store: dict[str, list[dict[str, Any]]] = {
+        "watchlists": [],
+        "search_history": [],
+        "predictions": [],
+    }
 
-    def __init__(self, table_name: str):
+    def __init__(self, table_name: str) -> None:
         self.table_name = table_name
-        self.filters = []
-        self._order = None
-        self._limit = None
-        self._inserted_data = None
-        self._deleted = False
-        self._update_data = None
+        self.filters: list[tuple[str, Any]] = []
+        self._order: tuple[str, bool] | None = None
+        self._limit: int | None = None
+        self._inserted_data: Any = None
+        self._deleted: bool = False
+        self._update_data: dict[str, Any] | None = None
 
-    def select(self, *args, **kwargs):
+    def select(self, *_: Any, **__: Any) -> "MockTableQuery":
         return self
 
-    def eq(self, field, value):
+    def eq(self, field: str, value: Any) -> "MockTableQuery":
         self.filters.append((field, value))
         return self
 
-    def order(self, field, desc=False):
+    def order(self, field: str, desc: bool = False) -> "MockTableQuery":
         self._order = (field, desc)
         return self
 
-    def limit(self, limit_val):
+    def limit(self, limit_val: int) -> "MockTableQuery":
         self._limit = limit_val
         return self
 
-    def insert(self, data):
+    def insert(self, data: Any) -> "MockTableQuery":
         self._inserted_data = data
         return self
 
-    def delete(self):
+    def delete(self) -> "MockTableQuery":
         self._deleted = True
         return self
 
-    def update(self, data):
+    def update(self, data: dict[str, Any]) -> "MockTableQuery":
         self._update_data = data
         return self
 
-    def execute(self):
-        class MockResponse:
-            def __init__(self, data):
-                self.data = data
-
+    def execute(self) -> MockResponse:
         current_time = datetime.utcnow().isoformat() + "Z"
 
         if self._inserted_data is not None:
@@ -73,7 +78,7 @@ class MockTableQuery:
 
         return MockResponse(self._handle_select())
 
-    def _handle_insert(self, current_time: str):
+    def _handle_insert(self, current_time: str) -> list[dict[str, Any]]:
         data_list = (
             self._inserted_data
             if isinstance(self._inserted_data, list)
@@ -92,7 +97,7 @@ class MockTableQuery:
             new_items.append(new_item)
         return new_items
 
-    def _handle_delete(self):
+    def _handle_delete(self) -> list[dict[str, Any]]:
         matching = []
         non_matching = []
         for item in MockTableQuery._store.get(self.table_name, []):
@@ -103,15 +108,16 @@ class MockTableQuery:
         MockTableQuery._store[self.table_name] = non_matching
         return matching
 
-    def _handle_update(self):
+    def _handle_update(self) -> list[dict[str, Any]]:
         matching = []
         for item in MockTableQuery._store.get(self.table_name, []):
             if self._matches_filters(item):
-                item.update(self._update_data)
+                if self._update_data:
+                    item.update(self._update_data)
                 matching.append(item)
         return matching
 
-    def _handle_select(self):
+    def _handle_select(self) -> list[dict[str, Any]]:
         items = MockTableQuery._store.get(self.table_name, [])
         filtered_items = [item for item in items if self._matches_filters(item)]
 
@@ -119,15 +125,15 @@ class MockTableQuery:
             field, desc = self._order
             try:
                 filtered_items.sort(key=lambda x: x.get(field) or "", reverse=desc)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Sorting failed: {e}")
 
         if self._limit is not None:
             filtered_items = filtered_items[: self._limit]
 
         return filtered_items
 
-    def _matches_filters(self, item: dict):
+    def _matches_filters(self, item: dict[str, Any]) -> bool:
         for field, val in self.filters:
             if item.get(field) != val:
                 return False
@@ -135,17 +141,18 @@ class MockTableQuery:
 
 
 class MockSupabaseClient:
-    def table(self, name: str):
+    def table(self, name: str) -> MockTableQuery:
         return MockTableQuery(name)
 
 
 def get_supabase_client() -> Any:
-    global _supabase_client
+    global _supabase_client  # pylint: disable=global-statement
     if _supabase_client is None:
         try:
+            # pylint: disable=import-outside-toplevel,no-name-in-module
             from supabase import create_client
 
-            # Verify keys are valid (not starting with sb_secret or containing placeholder text)
+            # Verify keys are valid
             if (
                 not SUPABASE_URL
                 or "your_supabase" in SUPABASE_URL
@@ -154,16 +161,17 @@ def get_supabase_client() -> Any:
                 or SUPABASE_SERVICE_ROLE_KEY.startswith("sb_secret")
             ):
                 logger.warning(
-                    "Supabase URL or Key is missing or placeholder/local-stub. Falling back to MockSupabaseClient."
+                    "Supabase URL or Key is missing or placeholder. "
+                    "Falling back to MockSupabaseClient."
                 )
                 _supabase_client = MockSupabaseClient()
             else:
-                _supabase_client = create_client(
+                _supabase_client = create_client(  # type: ignore[attr-defined]
                     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
                 )
-        except Exception as e:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.warning(
-                f"Failed to initialize Supabase client: {e}. Falling back to MockSupabaseClient."
+                "Failed to initialize Supabase client. Falling back to Mock."
             )
             _supabase_client = MockSupabaseClient()
-    return _supabase_client
+    return cast(Any, _supabase_client)

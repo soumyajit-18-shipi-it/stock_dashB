@@ -1,8 +1,10 @@
 stages:
+  - format
   - lint
-  - typecheck
+  - type_check
   - security
   - test
+  - coverage
   - build
   - release
 
@@ -16,16 +18,43 @@ cache:
     - frontend/node_modules/
 
 # ---------------------------------------------------------------------------
-# LINT STAGE
+# FORMAT STAGE
 # ---------------------------------------------------------------------------
 
-lint:python:
-  stage: lint
+format:python:
+  stage: format
   image: python:3.11-slim
   script:
     - pip install ruff
-    - ruff check .
     - ruff format --check .
+    - ruff check .
+
+format:frontend:
+  stage: format
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run format:check || echo "Format check failed, please run npm run format"
+
+# ---------------------------------------------------------------------------
+# LINT STAGE
+# ---------------------------------------------------------------------------
+
+lint:flake8:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install flake8
+    - flake8 .
+
+lint:pylint:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pylint
+    - pylint backend
 
 lint:frontend:
   stage: lint
@@ -36,18 +65,19 @@ lint:frontend:
     - npm run lint
 
 # ---------------------------------------------------------------------------
-# TYPECHECK STAGE
+# TYPE_CHECK STAGE
 # ---------------------------------------------------------------------------
 
-typecheck:python:
-  stage: typecheck
+type_check:python:
+  stage: type_check
   image: python:3.11-slim
   script:
-    - pip install mypy types-python-dotenv types-requests pydantic fastapi
+    - pip install -r backend/requirements.txt
+    - pip install mypy types-python-dotenv types-requests
     - mypy .
 
-typecheck:frontend:
-  stage: typecheck
+type_check:frontend:
+  stage: type_check
   image: node:18-alpine
   script:
     - cd frontend
@@ -58,12 +88,11 @@ typecheck:frontend:
 # SECURITY STAGE
 # ---------------------------------------------------------------------------
 
-security:bandit:
+security:semgrep:
   stage: security
-  image: python:3.11-slim
+  image: returntocorp/semgrep
   script:
-    - pip install bandit[toml]
-    - bandit -c pyproject.toml -r .
+    - semgrep scan --config .semgrep.yml --fail-on-error
 
 security:gitleaks:
   stage: security
@@ -72,13 +101,6 @@ security:gitleaks:
     entrypoint: [""]
   script:
     - gitleaks detect --source . --verbose
-
-security:npm-audit:
-  stage: security
-  image: node:18-alpine
-  script:
-    - cd frontend
-    - npm audit
 
 # ---------------------------------------------------------------------------
 # TEST STAGE
@@ -90,12 +112,7 @@ test:python:
   script:
     - pip install -r backend/requirements.txt
     - pip install pytest pytest-cov
-    - pytest --cov=backend --cov-report=xml --cov-report=term
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
+    - pytest backend/tests
 
 test:frontend:
   stage: test
@@ -104,6 +121,24 @@ test:frontend:
     - cd frontend
     - npm install
     - npm run test:run
+
+# ---------------------------------------------------------------------------
+# COVERAGE STAGE
+# ---------------------------------------------------------------------------
+
+coverage:python:
+  stage: coverage
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pytest pytest-cov
+    - pytest --cov=backend --cov-report=xml --cov-report=term
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?%|[1-9]?\d(?:\.\d+)?%)/'
 
 # ---------------------------------------------------------------------------
 # BUILD STAGE

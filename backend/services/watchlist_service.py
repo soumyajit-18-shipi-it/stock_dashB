@@ -1,52 +1,34 @@
+import logging
+from typing import Any
+
 from database.supabase_client import get_supabase_client
-from schemas import WatchlistCreate, WatchlistItem
 
 
 class WatchlistService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = get_supabase_client()
+        self.logger = logging.getLogger("stock_dashboard")
 
-    def get_watchlist(self, user_id: str | None) -> list[WatchlistItem]:
+    def get_watchlist(self, user_id: str | None) -> list[dict[str, Any]]:
         response = (
             self.client.table("watchlists")
             .select("*")
             .eq("user_id", user_id)
-            .order("created_at", desc=True)
             .execute()
         )
-        return [WatchlistItem(**item) for item in response.data]
+        return list(response.data)
 
-    def add_to_watchlist(
-        self, user_id: str | None, item: WatchlistCreate
-    ) -> WatchlistItem:
-        data = {
-            "user_id": user_id,
-            "ticker": item.ticker,
-            "name": item.name,
-        }
+    def add_to_watchlist(self, user_id: str | None, ticker: str) -> dict[str, Any]:
+        data = {"user_id": user_id, "ticker": ticker}
         response = self.client.table("watchlists").insert(data).execute()
-        return WatchlistItem(**response.data[0])
+        return dict(response.data[0])
 
-    def remove_from_watchlist(self, user_id: str | None, watchlist_id: str) -> bool:
+    def remove_from_watchlist(self, user_id: str | None, ticker: str) -> bool:
         response = (
             self.client.table("watchlists")
             .delete()
-            .eq("id", watchlist_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return len(response.data) > 0
-
-    def get_watchlist_by_ticker(
-        self, user_id: str | None, ticker: str
-    ) -> WatchlistItem | None:
-        response = (
-            self.client.table("watchlists")
-            .select("*")
             .eq("user_id", user_id)
             .eq("ticker", ticker)
             .execute()
         )
-        if response.data:
-            return WatchlistItem(**response.data[0])
-        return None
+        return len(response.data) > 0

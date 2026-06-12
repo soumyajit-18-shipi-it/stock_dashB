@@ -3,7 +3,7 @@ from schemas import SearchHistoryItem
 
 
 class HistoryService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = get_supabase_client()
 
     def get_search_history(

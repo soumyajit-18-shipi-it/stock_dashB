@@ -1,5 +1,5 @@
 import time
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from core.config import settings
@@ -8,7 +8,7 @@ from core.config import settings
 class FinnhubService:
     BASE_URL = "https://finnhub.io/api/v1"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_key = settings.FINNHUB_API_KEY
         self.last_latency = 0.0
 
@@ -27,7 +27,7 @@ class FinnhubService:
                 self.last_latency = (time.time() - start_time) * 1000
 
                 if response.status_code == 200:
-                    return response.json()
+                    return cast(dict[str, Any], response.json())
                 return None
         except Exception:
             self.last_latency = (time.time() - start_time) * 1000

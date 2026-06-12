@@ -1,9 +1,12 @@
+import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import requests
 from data.cache import DataCache
+
+logger = logging.getLogger("stock_dashboard")
 
 
 class StockDataProvider:
@@ -14,17 +17,24 @@ class StockDataProvider:
         "5y": "5y",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cache = DataCache()
         self.last_latency = 0.0
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,image/apng,*/*;q=0.8"
+            ),
             "Accept-Language": "en-US,en;q=0.9",
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        self._crumb = None
+        self._crumb: str | None = None
 
     def _get_crumb(self) -> str:
         if self._crumb:
@@ -37,20 +47,24 @@ class StockDataProvider:
             if res.status_code == 200:
                 self._crumb = res.text
             return self._crumb or ""
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to fetch crumb: {e}")
             return ""
 
     def get_stock_data(self, ticker: str, range_key: str = "1y") -> pd.DataFrame:
         start_time = time.time()
         cache_key = f"{ticker}_{range_key}"
         cached = self.cache.get(cache_key)
-        if cached is not None:
+        if cached is not None and isinstance(cached, pd.DataFrame):
             self.last_latency = (time.time() - start_time) * 1000
             return cached
 
         period = self.RANGE_MAP.get(range_key, "1y")
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={period}&interval=1d"
+            url = (
+                f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+                f"?range={period}&interval=1d"
+            )
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -109,11 +123,11 @@ class StockDataProvider:
         start_time = time.time()
         cache_key = f"{ticker}_info"
         cached = self.cache.get(cache_key)
-        if cached is not None:
+        if cached is not None and isinstance(cached, dict):
             self.last_latency = (time.time() - start_time) * 1000
-            return cached
+            return cast(dict[str, Any], cached)
 
-        info = {}
+        info: dict[str, Any] = {}
 
         # 1. Fetch Sector/Industry from Search API
         try:
@@ -133,14 +147,17 @@ class StockDataProvider:
                             "type": quote_s.get("quoteType"),
                         }
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error fetching sector data for {ticker}: {e}")
 
         # 2. Fetch Market Cap from Quote API (requires crumb)
         try:
             crumb = self._get_crumb()
             if crumb:
-                url_quote = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}&crumb={crumb}"
+                url_quote = (
+                    "https://query1.finance.yahoo.com/v7/finance/quote"
+                    f"?symbols={ticker}&crumb={crumb}"
+                )
                 response_quote = self.session.get(url_quote, timeout=10)
                 if response_quote.status_code == 200:
                     data_quote = response_quote.json()
@@ -150,8 +167,8 @@ class StockDataProvider:
                         info["previousClose"] = quote_q.get(
                             "regularMarketPreviousClose"
                         )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error fetching market cap for {ticker}: {e}")
 
         self.cache.set(cache_key, info)
         self.last_latency = (time.time() - start_time) * 1000

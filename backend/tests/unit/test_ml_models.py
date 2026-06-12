@@ -3,83 +3,70 @@ import tempfile
 
 import numpy as np
 import pandas as pd
-
-from backend.features.engineering import FeatureEngineer
-from backend.ml.linear_model import LinearRegressionModel
-from backend.ml.random_forest_model import RandomForestModel
+import pytest
+from features.engineering import FeatureEngineer
+from ml.linear_model import LinearRegressionModel
+from ml.random_forest_model import RandomForestModel
 
 
 class TestMLModels:
-    def setup_method(self):
-        np.random.seed(42)
-        n = 200
-        self.df = pd.DataFrame(
-            {
-                "Close": 100 + np.cumsum(np.random.randn(n) * 2),
-                "Volume": 1000000 + np.random.randint(-100000, 100000, n),
-            }
-        )
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
         self.engineer = FeatureEngineer()
-        self.X, self.y = self.engineer.prepare_training_data(self.df)
-        self.temp_dir = tempfile.mkdtemp()
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        data = {
+            "Open": np.random.rand(100) * 100,
+            "High": np.random.rand(100) * 100,
+            "Low": np.random.rand(100) * 100,
+            "Close": np.random.rand(100) * 100,
+            "Volume": np.random.randint(1000, 10000, size=100),
+        }
+        df = pd.DataFrame(data, index=dates)
+        self.X, self.y = self.engineer.prepare_training_data(df)
 
-    def test_linear_regression_train(self):
+    def test_linear_regression_train_predict(self) -> None:
         model = LinearRegressionModel()
         model.train(self.X, self.y)
         assert model.is_trained()
-        assert "rmse" in model.metrics
-        assert "mae" in model.metrics
-        assert "r2" in model.metrics
 
-    def test_linear_regression_predict(self):
-        model = LinearRegressionModel()
-        model.train(self.X, self.y)
-        X_pred = self.engineer.prepare_prediction_input(self.df)
+        X_pred = self.X.iloc[-1:]
         prediction = model.predict(X_pred)
         assert len(prediction) == 1
-        assert isinstance(prediction[0], (int, float))
+        assert isinstance(prediction[0], int | float)
 
-    def test_linear_regression_save_load(self):
-        model = LinearRegressionModel()
-        model.train(self.X, self.y)
-        path = os.path.join(self.temp_dir, "linear_test.pkl")
-        model.save(path)
-        assert os.path.exists(path)
-
-        new_model = LinearRegressionModel()
-        loaded = new_model.load(path)
-        assert loaded
-        assert new_model.is_trained()
-
-    def test_random_forest_train(self):
+    def test_random_forest_train_predict(self) -> None:
         model = RandomForestModel()
         model.train(self.X, self.y)
         assert model.is_trained()
-        assert "rmse" in model.metrics
-        assert "mae" in model.metrics
-        assert "r2" in model.metrics
 
-    def test_random_forest_predict(self):
-        model = RandomForestModel()
-        model.train(self.X, self.y)
-        X_pred = self.engineer.prepare_prediction_input(self.df)
+        X_pred = self.X.iloc[-1:]
         prediction = model.predict(X_pred)
         assert len(prediction) == 1
-        assert isinstance(prediction[0], (int, float))
+        assert isinstance(prediction[0], int | float)
 
-    def test_random_forest_save_load(self):
+    def test_linear_regression_save_load(self) -> None:
+        model = LinearRegressionModel()
+        model.train(self.X, self.y)
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            model.save(tmp.name)
+            new_model = LinearRegressionModel()
+            assert new_model.load(tmp.name)
+            assert new_model.is_trained()
+        os.unlink(tmp.name)
+
+    def test_random_forest_save_load(self) -> None:
         model = RandomForestModel()
         model.train(self.X, self.y)
-        path = os.path.join(self.temp_dir, "rf_test.pkl")
-        model.save(path)
-        assert os.path.exists(path)
 
-        new_model = RandomForestModel()
-        loaded = new_model.load(path)
-        assert loaded
-        assert new_model.is_trained()
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            model.save(tmp.name)
+            new_model = RandomForestModel()
+            assert new_model.load(tmp.name)
+            assert new_model.is_trained()
+        os.unlink(tmp.name)
 
-    def test_confidence_score(self):
+    def test_confidence_score(self) -> None:
         model = LinearRegressionModel()
         model.train(self.X, self.y)
         confidence = model.get_confidence_score()

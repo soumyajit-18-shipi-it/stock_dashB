@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     FINNHUB_API_KEY: str = os.getenv("FINNHUB_API_KEY", "")
 
     # CORS
-    CORS_ORIGINS: list = ["*"]
+    CORS_ORIGINS: list[str] = ["*"]
 
     class Config:
         case_sensitive = True

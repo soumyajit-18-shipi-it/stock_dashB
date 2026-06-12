@@ -3,7 +3,7 @@ from features.technical_indicators import TechnicalIndicators
 
 
 class FeatureEngineer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.indicators = TechnicalIndicators()
 
     def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:

@@ -1,4 +1,4 @@
-import os
+from typing import cast
 
 import pandas as pd
 from data.provider import StockDataProvider
@@ -6,91 +6,39 @@ from features.engineering import FeatureEngineer
 from ml.base_model import BaseModel
 from ml.linear_model import LinearRegressionModel
 from ml.random_forest_model import RandomForestModel
-from schemas import ModelEnum, ModelMetrics, PredictionResult, TrendDirection
+from schemas import ModelEnum, PredictionResult
 
 
 class StockPredictor:
-    MODEL_DIR = "models"
-    MODEL_FILES = {
-        ModelEnum.LINEAR: "linear.pkl",
-        ModelEnum.RANDOM_FOREST: "random_forest.pkl",
-    }
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.data_provider = StockDataProvider()
         self.feature_engineer = FeatureEngineer()
         self.models: dict[str, BaseModel] = {
-            ModelEnum.LINEAR.value: LinearRegressionModel(),
-            ModelEnum.RANDOM_FOREST.value: RandomForestModel(),
+            "linear": LinearRegressionModel(),
+            "rf": RandomForestModel(),
         }
-        self._ensure_model_dir()
-
-    def _ensure_model_dir(self) -> None:
-        os.makedirs(self.MODEL_DIR, exist_ok=True)
-
-    def _get_model_path(self, model_type: ModelEnum) -> str:
-        filename = self.MODEL_FILES.get(model_type, "linear.pkl")
-        return os.path.join(self.MODEL_DIR, filename)
-
-    def _load_model(self, model_type: ModelEnum) -> bool:
-        model = self.models.get(model_type.value)
-        if model:
-            path = self._get_model_path(model_type)
-            return model.load(path)
-        return False
-
-    def _train_model(self, model_type: ModelEnum, df: pd.DataFrame) -> None:
-        model = self.models.get(model_type.value)
-        if model:
-            X, y = self.feature_engineer.prepare_training_data(df)
-            model.train(X, y)
-            path = self._get_model_path(model_type)
-            model.save(path)
-
-    def get_or_train_model(self, model_type: ModelEnum, df: pd.DataFrame) -> BaseModel:
-        model = self.models.get(model_type.value)
-        if not model:
-            raise ValueError(f"Unknown model type: {model_type}")
-
-        if not self._load_model(model_type):
-            self._train_model(model_type, df)
-            self._load_model(model_type)
-
-        model = self.models.get(model_type.value)
-        if not model or not model.is_trained():
-            self._train_model(model_type, df)
-
-        return self.models[model_type.value]
 
     def predict(
-        self,
-        ticker: str,
-        model_type: ModelEnum = ModelEnum.LINEAR,
-        range_key: str = "1y",
-    ) -> tuple[PredictionResult, ModelMetrics]:
+        self, ticker: str, model_type: ModelEnum, range_key: str = "1y"
+    ) -> tuple[PredictionResult, dict[str, float]]:
         df = self.data_provider.get_stock_data(ticker, range_key)
+        X, y = self.feature_engineer.prepare_training_data(df)
 
-        model = self.get_or_train_model(model_type, df)
+        model = self.models.get(model_type.value, self.models["linear"])
+        model.train(X, y)
 
         X_pred = self.feature_engineer.prepare_prediction_input(df)
-        prediction = model.predict(X_pred)
-        predicted_price = float(prediction[0])
-
-        last_close = df["Close"].iloc[-1]
-        trend = (
-            TrendDirection.INCREASE
-            if predicted_price > last_close
-            else TrendDirection.DECREASE
-        )
-        confidence = model.get_confidence_score()
+        prediction = model.predict(X_pred)[0]
 
         result = PredictionResult(
-            predicted_price=round(predicted_price, 4),
-            trend=trend,
-            confidence=round(confidence, 4),
-            model_used=model_type.value,
+            ticker=ticker,
+            model=model_type.value,
+            predicted_price=float(prediction),
+            confidence=model.get_confidence_score(),
+            timestamp=pd.Timestamp.now().isoformat(),
         )
 
-        metrics = ModelMetrics(**model.metrics)
+        return result, model.metrics
 
-        return result, metrics
+    def is_trained(self, model_type: str) -> bool:
+        return cast(bool, self.models[model_type].is_trained())
