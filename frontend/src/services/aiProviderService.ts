@@ -70,16 +70,27 @@ async function checkedFetch(input: RequestInfo | URL, init: RequestInit = {}, ti
 }
 
 function readableProviderError(status: number, body: string) {
-  if (status === 401 || status === 403) return 'Invalid API key or unauthorized provider access.';
-  if (status === 429) return 'Provider quota exceeded. Try again later.';
+  let parsedMsg = '';
   if (body) {
     try {
       const parsed = JSON.parse(body);
-      return parsed.error?.message || parsed.message || parsed.detail || body.slice(0, 180);
+      parsedMsg = parsed.error?.message || parsed.message || parsed.detail || '';
     } catch {
-      return body.slice(0, 180);
+      parsedMsg = body.slice(0, 180);
     }
   }
+
+  if (parsedMsg) {
+    const lowerMsg = parsedMsg.toLowerCase();
+    if (lowerMsg.includes('terms') || lowerMsg.includes('unavailable') || lowerMsg.includes('not found') || lowerMsg.includes('does not exist')) {
+      return `This model is unavailable. Please select another model.`;
+    }
+    return parsedMsg;
+  }
+
+  if (status === 401 || status === 403) return 'Invalid API key or unauthorized provider access.';
+  if (status === 429) return 'Provider quota exceeded. Try again later.';
+  
   return `Provider request failed (${status}).`;
 }
 
@@ -200,7 +211,7 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
 
 export function selectBestModel(_provider: AiProvider, models: ModelOption[]) {
   // Try to find a sensible default
-  const priorities = ['gpt-4', 'claude-3-5-sonnet', 'gemini-1.5-pro', 'llama3', 'mistral'];
+  const priorities = ['gpt-4o', 'gpt-4', 'claude-3-5-sonnet', 'claude-3', 'gemini-1.5-pro', 'gemini-1.5-flash', 'llama-3', 'llama3', 'mixtral', 'gemma', 'qwen', 'mistral'];
   for (const p of priorities) {
     const found = models.find(m => m.id.toLowerCase().includes(p));
     if (found) return found;
@@ -306,93 +317,108 @@ async function parseJsonLineStream(response: Response, onToken: (token: string) 
 }
 
 export async function streamChat(config: AIProviderConfig, messages: ChatMessage[], signal: AbortSignal, onToken: (token: string) => void) {
-  const effective = config.selectedModel ? config : await detectAndApplyModel(config, signal);
+  let effective = config.selectedModel ? config : await detectAndApplyModel(config, signal);
   if (!effective.selectedModel) throw new Error('No model available for selected provider.');
 
-  const meta = effective.provider === 'auto' ? detectProviderFromKey(effective.apiKey || '') : { provider: effective.provider, baseUrl: effective.baseUrl };
-  const provider = meta.provider;
-  const baseUrl = normalizeBaseUrl(meta.baseUrl || effective.baseUrl || '');
+  const attemptStream = async (currentConfig: AIProviderConfig) => {
+    const meta = currentConfig.provider === 'auto' ? detectProviderFromKey(currentConfig.apiKey || '') : { provider: currentConfig.provider, baseUrl: currentConfig.baseUrl };
+    const provider = meta.provider;
+    const baseUrl = normalizeBaseUrl(meta.baseUrl || currentConfig.baseUrl || '');
 
-  if (provider === 'ollama') {
-    const ollamaUrl = baseUrl || 'http://localhost:11434';
-    let response: Response;
-    try {
-      response = await checkedFetch(`${ollamaUrl}/api/chat`, {
+    if (provider === 'ollama') {
+      const ollamaUrl = baseUrl || 'http://localhost:11434';
+      let response: Response;
+      try {
+        response = await checkedFetch(`${ollamaUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: currentConfig.selectedModel, messages, stream: true }),
+          signal,
+        }, 120000);
+      } catch (error) {
+        if (error instanceof TypeError || (error instanceof Error && error.message === 'Failed to fetch')) {
+          throw new Error('Ollama server not detected.\nStart Ollama and try again.');
+        }
+        throw error;
+      }
+      await parseJsonLineStream(response, onToken);
+      return;
+    }
+
+    if (provider === 'gemini') {
+      const response = await checkedFetch(`https://generativelanguage.googleapis.com/v1beta/models/${currentConfig.selectedModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(currentConfig.apiKey || '')}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: effective.selectedModel, messages, stream: true }),
+        body: JSON.stringify({
+          contents: messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          systemInstruction: { parts: [{ text: messages.find((m) => m.role === 'system')?.content || '' }] },
+        }),
         signal,
       }, 120000);
-    } catch (error) {
-      if (error instanceof TypeError || (error instanceof Error && error.message === 'Failed to fetch')) {
-        throw new Error('Ollama server not detected.\nStart Ollama and try again.');
-      }
+      await parseSseStream(response, (chunk) => {
+        try {
+          const text = JSON.parse(chunk).candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) onToken(text);
+        } catch {
+          if (chunk) onToken(chunk);
+        }
+      });
+      return;
+    }
+
+    if (provider === 'anthropic') {
+      const system = messages.find((m) => m.role === 'system')?.content || '';
+      const response = await checkedFetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': currentConfig.apiKey || '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: currentConfig.selectedModel,
+          max_tokens: 1400,
+          stream: true,
+          system,
+          messages: messages.filter((m) => m.role !== 'system'),
+        }),
+        signal,
+      }, 120000);
+      await parseSseStream(response, (chunk) => {
+        try {
+          const json = JSON.parse(chunk);
+          const token = json.delta?.text || json.content_block_delta?.delta?.text || '';
+          if (token) onToken(token);
+        } catch {
+          // Ignore non-content events.
+        }
+      });
+      return;
+    }
+
+    const chatUrl = baseUrl ? `${baseUrl}/chat/completions` : 'https://api.openai.com/v1/chat/completions';
+    const response = await checkedFetch(chatUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentConfig.apiKey || ''}` },
+      body: JSON.stringify({ model: currentConfig.selectedModel, messages, stream: true }),
+      signal,
+    }, 120000);
+    await parseOpenAIStream(response, onToken);
+  };
+
+  try {
+    await attemptStream(effective);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('unavailable. Please select another model')) {
+      // Auto-fallback
+      effective = await detectAndApplyModel({ ...config, selectedModel: '' }, signal);
+      if (!effective.selectedModel) throw new Error('No available models found to fallback to.');
+      await attemptStream(effective);
+    } else {
       throw error;
     }
-    await parseJsonLineStream(response, onToken);
-    return;
   }
-
-  if (provider === 'gemini') {
-    const response = await checkedFetch(`https://generativelanguage.googleapis.com/v1beta/models/${effective.selectedModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(effective.apiKey || '')}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        systemInstruction: { parts: [{ text: messages.find((m) => m.role === 'system')?.content || '' }] },
-      }),
-      signal,
-    }, 120000);
-    await parseSseStream(response, (chunk) => {
-      try {
-        const text = JSON.parse(chunk).candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) onToken(text);
-      } catch {
-        if (chunk) onToken(chunk);
-      }
-    });
-    return;
-  }
-
-  if (provider === 'anthropic') {
-    const system = messages.find((m) => m.role === 'system')?.content || '';
-    const response = await checkedFetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': effective.apiKey || '',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: effective.selectedModel,
-        max_tokens: 1400,
-        stream: true,
-        system,
-        messages: messages.filter((m) => m.role !== 'system'),
-      }),
-      signal,
-    }, 120000);
-    await parseSseStream(response, (chunk) => {
-      try {
-        const json = JSON.parse(chunk);
-        const token = json.delta?.text || json.content_block_delta?.delta?.text || '';
-        if (token) onToken(token);
-      } catch {
-        // Ignore non-content events.
-      }
-    });
-    return;
-  }
-
-  const chatUrl = baseUrl ? `${baseUrl}/chat/completions` : 'https://api.openai.com/v1/chat/completions';
-  const response = await checkedFetch(chatUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${effective.apiKey || ''}` },
-    body: JSON.stringify({ model: effective.selectedModel, messages, stream: true }),
-    signal,
-  }, 120000);
-  await parseOpenAIStream(response, onToken);
 }
 
 
@@ -409,6 +435,10 @@ export async function generateReport(config: AIProviderConfig, stock: StockRespo
     { role: 'user', content: shorterPrompt },
   ], signal, onToken);
 }
+
+
+
+
 
 
 
