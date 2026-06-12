@@ -32,7 +32,7 @@ function loadHistory(ticker: string): UIMessage[] {
   try {
     const stored = localStorage.getItem('ai_chat_history');
     if (!stored) return [];
-    let histories = JSON.parse(stored);
+    const histories = JSON.parse(stored);
     if (!Array.isArray(histories)) return [];
     const conversation = (histories as ChatConversation[]).find((h) => h.ticker === ticker);
     if (!conversation) return [];
