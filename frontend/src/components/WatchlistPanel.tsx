@@ -1,10 +1,12 @@
 import { Star, Trash2, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWatchlist } from '../hooks/useStock';
 import { useStore } from '../store/stock_store';
 
 export function WatchlistPanel() {
   const { watchlist, isLoading, remove } = useWatchlist();
   const { ticker, setTicker } = useStore();
+  const { t } = useTranslation();
 
   const handleRemove = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -20,9 +22,9 @@ export function WatchlistPanel() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Star className="h-5 w-5 text-yellow-400" />
-          <h3 className="text-lg font-semibold text-white">Watchlist</h3>
+          <h3 className="text-lg font-semibold text-white">{t('watchlist')}</h3>
         </div>
-        <span className="text-sm text-slate-400">{watchlist.length} stocks</span>
+        <span className="text-sm text-slate-400">{t('stocksCount', { count: watchlist.length })}</span>
       </div>
 
       {isLoading ? (
@@ -32,7 +34,7 @@ export function WatchlistPanel() {
         </div>
       ) : watchlist.length === 0 ? (
         <p className="text-slate-400 text-sm text-center py-4">
-          No stocks in watchlist
+          {t('noStocks')}
         </p>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">

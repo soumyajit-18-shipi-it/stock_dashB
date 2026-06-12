@@ -1,15 +1,23 @@
 import Plot from 'react-plotly.js';
+import { useTranslation } from 'react-i18next';
 import type { StockPricePoint } from '../types';
+import { useUIStore } from '../store/ui_store';
 
 interface VolumeChartProps {
   data: StockPricePoint[];
 }
 
 export function VolumeChart({ data }: VolumeChartProps) {
+  const { t } = useTranslation();
+  const { darkMode } = useUIStore();
+  const chartTheme = darkMode
+    ? { paper: 'transparent', plot: 'transparent', font: '#94a3b8', title: '#f1f5f9', grid: '#334155', line: '#475569' }
+    : { paper: '#ffffff', plot: '#ffffff', font: '#475569', title: '#0f172a', grid: '#e2e8f0', line: '#cbd5e1' };
+
   if (!data || data.length === 0) {
     return (
       <div className="h-48 flex items-center justify-center bg-slate-800/50 rounded-xl border border-slate-700">
-        <p className="text-slate-400">No volume data available</p>
+        <p className="text-slate-400">{t('noVolumeData')}</p>
       </div>
     );
   }
@@ -26,29 +34,31 @@ export function VolumeChart({ data }: VolumeChartProps) {
     y: volumes,
     type: 'bar',
     marker: { color: colors },
-    hovertemplate: '<b>Date:</b> %{x}<br><b>Volume:</b> %{y:,.0f}<extra></extra>',
+    hovertemplate: `<b>${t('date')}:</b> %{x}<br><b>${t('volume')}:</b> %{y:,.0f}<extra></extra>`,
   };
 
   const layout: Partial<Plotly.Layout> = {
     title: {
-      text: 'Volume',
-      font: { color: '#f1f5f9', size: 14 },
+      text: t('volume'),
+      font: { color: chartTheme.title, size: 14 },
     },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    font: { color: '#94a3b8' },
+    paper_bgcolor: chartTheme.paper,
+    plot_bgcolor: chartTheme.plot,
+    font: { color: chartTheme.font },
     xaxis: {
-      gridcolor: '#334155',
-      linecolor: '#475569',
-      tickfont: { color: '#94a3b8' },
+      gridcolor: chartTheme.grid,
+      linecolor: chartTheme.line,
+      tickfont: { color: chartTheme.font },
+      automargin: true,
     },
     yaxis: {
-      gridcolor: '#334155',
-      linecolor: '#475569',
-      tickfont: { color: '#94a3b8' },
+      gridcolor: chartTheme.grid,
+      linecolor: chartTheme.line,
+      tickfont: { color: chartTheme.font, size: 10 },
       tickformat: '.2s',
+      automargin: true,
     },
-    margin: { l: 40, r: 20, t: 30, b: 40 },
+    margin: { l: 80, r: 20, t: 30, b: 40 },
     bargap: 0.1,
   };
 

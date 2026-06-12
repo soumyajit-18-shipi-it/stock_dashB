@@ -1,12 +1,14 @@
 import { Brain, TreeDeciduous } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../store/stock_store';
 
 export function ModelToggle() {
   const { model, setModel } = useStore();
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-slate-400 mr-2">Model:</span>
+      <span className="text-sm text-slate-400 mr-2">{t('model')}</span>
       <div className="flex bg-slate-800 rounded-lg p-1">
         <button
           onClick={() => setModel('linear')}
@@ -17,7 +19,7 @@ export function ModelToggle() {
           }`}
         >
           <Brain className="h-4 w-4" />
-          Linear
+          {t('linear')}
         </button>
         <button
           onClick={() => setModel('rf')}
@@ -28,7 +30,7 @@ export function ModelToggle() {
           }`}
         >
           <TreeDeciduous className="h-4 w-4" />
-          Random Forest
+          {t('randomForest')}
         </button>
       </div>
     </div>

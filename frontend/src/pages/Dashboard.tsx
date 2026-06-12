@@ -9,14 +9,17 @@ import {
   LoadingSkeleton,
   ErrorMessage,
   EmptyState,
-  WatchlistPanel,
+  AskAIDrawer,
+  AIReportButton,
 } from '../components';
 import { useStock, useWatchlist } from '../hooks/useStock';
 import { useStore } from '../store/stock_store';
 import { Plus, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function Dashboard() {
   const { ticker, model } = useStore();
+  const { t } = useTranslation();
   const { watchlist, add } = useWatchlist();
   const { data: stockData, isLoading, error } = useStock();
 
@@ -40,7 +43,7 @@ export function Dashboard() {
         ) : isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <ErrorMessage message={error instanceof Error ? error.message : String(error)} />
+          <ErrorMessage message={t('fetchStockError')} />
         ) : stockData ? (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -50,12 +53,12 @@ export function Dashboard() {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-slate-400">
-                  Model: <span className="text-emerald-400">{model === 'rf' ? 'Random Forest' : 'Linear Regression'}</span>
+                  {t('modelLabel')}: <span className="text-emerald-400">{model === 'rf' ? t('randomForest') : t('linear')}</span>
                 </span>
                 {isInWatchlist ? (
                   <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/20 px-4 py-2 rounded-lg">
                     <Check className="h-4 w-4" />
-                    <span className="text-sm font-medium">In Watchlist</span>
+                    <span className="text-sm font-medium">{t('inWatchlist')}</span>
                   </div>
                 ) : (
                   <button
@@ -63,24 +66,25 @@ export function Dashboard() {
                     className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
                   >
                     <Plus className="h-4 w-4" />
-                    Add to Watchlist
+                    {t('addToWatchlist')}
                   </button>
                 )}
+                <AIReportButton stockData={stockData} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <StockChart data={stockData.history} title={`${stockData.profile.ticker} Price History`} />
+                <StockChart data={stockData.history} stockData={stockData} title={t('priceHistory', { ticker: stockData.profile.ticker })} />
                 <VolumeChart data={stockData.history} />
               </div>
 
               <div className="space-y-6">
                 <CompanyProfileCard profile={stockData.profile} />
-                <PredictionCard prediction={stockData.prediction} metrics={stockData.metrics} />
-                <WatchlistPanel />
+                <PredictionCard prediction={stockData.prediction} metrics={stockData.metrics} stockData={stockData} />
               </div>
             </div>
+            <AskAIDrawer stockData={stockData} />
           </div>
         ) : null}
       </div>

@@ -1,16 +1,29 @@
 import Plot from 'react-plotly.js';
+import { useTranslation } from 'react-i18next';
 import type { StockPricePoint } from '../types';
+import type { StockResponse } from '../types';
+import { currencyForStock } from '../utils/format';
+import { useUIStore } from '../store/ui_store';
 
 interface StockChartProps {
   data: StockPricePoint[];
   title?: string;
+  stockData?: StockResponse;
 }
 
-export function StockChart({ data, title = 'Stock Price' }: StockChartProps) {
+export function StockChart({ data, title, stockData }: StockChartProps) {
+  const { t } = useTranslation();
+  const { darkMode } = useUIStore();
+  const currency = currencyForStock(stockData);
+  const symbol = currency === 'INR' ? 'INR ' : '$';
+  const chartTheme = darkMode
+    ? { paper: 'transparent', plot: 'transparent', font: '#94a3b8', title: '#f1f5f9', grid: '#334155', line: '#475569' }
+    : { paper: '#ffffff', plot: '#ffffff', font: '#475569', title: '#0f172a', grid: '#e2e8f0', line: '#cbd5e1' };
+
   if (!data || data.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center bg-slate-800/50 rounded-xl border border-slate-700">
-        <p className="text-slate-400">No chart data available</p>
+        <p className="text-slate-400">{t('noChartData')}</p>
       </div>
     );
   }
@@ -26,9 +39,9 @@ export function StockChart({ data, title = 'Stock Price' }: StockChartProps) {
       y: close,
       type: 'scatter',
       mode: 'lines',
-      name: 'Close',
+      name: t('close'),
       line: { color: '#10b981', width: 2 },
-      hovertemplate: '<b>Date:</b> %{x}<br><b>Close:</b> $%{y:.2f}<extra></extra>',
+      hovertemplate: `<b>${t('date')}:</b> %{x}<br><b>${t('close')}:</b> ${symbol}%{y:.2f}<extra></extra>`,
     },
     {
       x: dates,
@@ -37,7 +50,7 @@ export function StockChart({ data, title = 'Stock Price' }: StockChartProps) {
       mode: 'lines',
       name: 'MA7',
       line: { color: '#f59e0b', width: 1.5, dash: 'dot' },
-      hovertemplate: '<b>Date:</b> %{x}<br><b>MA7:</b> $%{y:.2f}<extra></extra>',
+      hovertemplate: `<b>${t('date')}:</b> %{x}<br><b>MA7:</b> ${symbol}%{y:.2f}<extra></extra>`,
     },
     {
       x: dates,
@@ -46,37 +59,39 @@ export function StockChart({ data, title = 'Stock Price' }: StockChartProps) {
       mode: 'lines',
       name: 'MA21',
       line: { color: '#8b5cf6', width: 1.5, dash: 'dash' },
-      hovertemplate: '<b>Date:</b> %{x}<br><b>MA21:</b> $%{y:.2f}<extra></extra>',
+      hovertemplate: `<b>${t('date')}:</b> %{x}<br><b>MA21:</b> ${symbol}%{y:.2f}<extra></extra>`,
     },
   ];
 
   const layout: Partial<Plotly.Layout> = {
     title: {
-      text: title,
-      font: { color: '#f1f5f9', size: 16 },
+      text: title || t('price'),
+      font: { color: chartTheme.title, size: 16 },
     },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    font: { color: '#94a3b8' },
+    paper_bgcolor: chartTheme.paper,
+    plot_bgcolor: chartTheme.plot,
+    font: { color: chartTheme.font },
     xaxis: {
-      title: { text: 'Date' },
-      gridcolor: '#334155',
-      linecolor: '#475569',
-      tickfont: { color: '#94a3b8' },
+      title: { text: t('date') },
+      gridcolor: chartTheme.grid,
+      linecolor: chartTheme.line,
+      tickfont: { color: chartTheme.font },
+      automargin: true,
     },
     yaxis: {
-      title: { text: 'Price ($)' },
-      gridcolor: '#334155',
-      linecolor: '#475569',
-      tickfont: { color: '#94a3b8' },
-      tickprefix: '$',
+      title: { text: `${t('price')} (${currency})`, standoff: 25 },
+      gridcolor: chartTheme.grid,
+      linecolor: chartTheme.line,
+      tickfont: { color: chartTheme.font, size: 10 },
+      tickprefix: symbol,
+      automargin: true,
     },
     legend: {
       orientation: 'h',
       y: -0.2,
-      font: { color: '#94a3b8' },
+      font: { color: chartTheme.font, size: 10 },
     },
-    margin: { l: 60, r: 40, t: 40, b: 80 },
+    margin: { l: 100, r: 40, t: 40, b: 80 },
     hovermode: 'x unified',
   };
 

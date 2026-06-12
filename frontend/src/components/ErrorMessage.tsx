@@ -1,4 +1,5 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorMessageProps {
   message: string;
@@ -6,10 +7,12 @@ interface ErrorMessageProps {
 }
 
 export function ErrorMessage({ message, onRetry }: ErrorMessageProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
       <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-      <h3 className="text-lg font-semibold text-white mb-2">Error Loading Data</h3>
+      <h3 className="text-lg font-semibold text-white mb-2">{t('errorLoading')}</h3>
       <p className="text-slate-400 mb-4">{message}</p>
       {onRetry && (
         <button
@@ -17,7 +20,7 @@ export function ErrorMessage({ message, onRetry }: ErrorMessageProps) {
           className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
-          Retry
+          {t('retry')}
         </button>
       )}
     </div>
@@ -25,13 +28,15 @@ export function ErrorMessage({ message, onRetry }: ErrorMessageProps) {
 }
 
 export function EmptyState() {
+  const { t } = useTranslation();
+
   return (
     <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-12 text-center">
       <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
         <TrendingUpIcon className="h-8 w-8 text-slate-400" />
       </div>
-      <h3 className="text-lg font-semibold text-white mb-2">No Stock Selected</h3>
-      <p className="text-slate-400">Search for a ticker symbol to view stock analysis and predictions.</p>
+      <h3 className="text-lg font-semibold text-white mb-2">{t('noStockSelected')}</h3>
+      <p className="text-slate-400">{t('emptyStateText')}</p>
     </div>
   );
 }

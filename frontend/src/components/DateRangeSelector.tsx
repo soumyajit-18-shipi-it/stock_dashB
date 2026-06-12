@@ -1,5 +1,6 @@
 import { useStore } from '../store/stock_store';
 import type { DateRange } from '../types';
+import { useTranslation } from 'react-i18next';
 
 const RANGES: { value: DateRange; label: string }[] = [
   { value: '1m', label: '1M' },
@@ -10,10 +11,11 @@ const RANGES: { value: DateRange; label: string }[] = [
 
 export function DateRangeSelector() {
   const { dateRange, setDateRange } = useStore();
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-slate-400 mr-2">Range:</span>
+      <span className="text-sm text-slate-400 mr-2">{t('range')}</span>
       <div className="flex bg-slate-800 rounded-lg p-1">
         {RANGES.map((range) => (
           <button
