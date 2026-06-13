@@ -10,10 +10,6 @@
       "destination": "https://stock-dashboard-production-9593.up.railway.app/api/v1/$1"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "https://stock-dashboard-production-9593.up.railway.app/api/$1"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
