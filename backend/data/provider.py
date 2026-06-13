@@ -1,13 +1,13 @@
 import logging
 import time
 from typing import Any, cast
-
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from data.cache import DataCache
 
 logger = logging.getLogger("stock_dashboard")
-
 
 class StockDataProvider:
     RANGE_MAP = {
@@ -20,52 +20,35 @@ class StockDataProvider:
     def __init__(self) -> None:
         self.cache = DataCache()
         self.last_latency = 0.0
-        self.headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/122.0.0.0 Safari/537.36"
-            ),
-            "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                "image/avif,image/webp,image/apng,*/*;q=0.8"
-            ),
-            "Accept-Language": "en-US,en;q=0.9",
-        }
         self.session = requests.Session()
-        self.session.headers.update(self.headers)
-        self._crumb: str | None = None
+        
+        # Configure retries with exponential backoff
+        retries = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+        
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        })
 
-    def _get_crumb(self) -> str:
-        if self._crumb:
-            return self._crumb
-        try:
-            self.session.get("https://finance.yahoo.com/", timeout=10)
-            res = self.session.get(
-                "https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=10
-            )
-            if res.status_code == 200:
-                self._crumb = res.text
-            return self._crumb or ""
-        except Exception as e:
-            logger.debug(f"Failed to fetch crumb: {e}")
-            return ""
-
-    def get_stock_data(self, ticker: str, range_key: str = "1y") -> pd.DataFrame:
+    def get_stock_data(self, ticker: str, range_key: str = "1y", force_refresh: bool = False) -> pd.DataFrame:
         start_time = time.time()
         cache_key = f"{ticker}_{range_key}"
-        cached = self.cache.get(cache_key)
-        if cached is not None and isinstance(cached, pd.DataFrame):
-            self.last_latency = (time.time() - start_time) * 1000
-            return cached
+        
+        if not force_refresh:
+            cached = self.cache.get(cache_key)
+            if cached is not None and isinstance(cached, pd.DataFrame):
+                self.last_latency = (time.time() - start_time) * 1000
+                return cached
 
         period = self.RANGE_MAP.get(range_key, "1y")
         try:
-            url = (
-                f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
-                f"?range={period}&interval=1d"
-            )
-            response = self.session.get(url, timeout=10)
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={period}&interval=1d"
+            response = self.session.get(url, timeout=15)
             response.raise_for_status()
             data = response.json()
 
@@ -92,31 +75,22 @@ class StockDataProvider:
             )
 
             df.index.name = "Date"
-
             df.attrs["metadata"] = {
                 "longName": meta.get("longName") or meta.get("shortName"),
-                "previousClose": meta.get("previousClose")
-                or meta.get("chartPreviousClose"),
-                "fiftyTwoWeekHigh": meta.get("fiftyTwoWeekHigh"),
-                "fiftyTwoWeekLow": meta.get("fiftyTwoWeekLow"),
                 "currency": meta.get("currency"),
-                "exchangeName": meta.get("exchangeName"),
                 "regularMarketPrice": meta.get("regularMarketPrice"),
             }
 
-            df = df.dropna(subset=["Open", "High", "Low", "Close"], how="all")
-            if not df.empty and pd.isna(df["Close"].iloc[-1]):
-                df = df.iloc[:-1]
-
+            df = df.dropna(how="any")
             if df.empty:
-                raise ValueError(f"No data found for ticker: {ticker}")
+                raise ValueError(f"No valid data points for ticker: {ticker}")
 
             self.cache.set(cache_key, df)
             self.last_latency = (time.time() - start_time) * 1000
             return df
 
         except Exception as e:
-            self.last_latency = (time.time() - start_time) * 1000
+            logger.error(f"Error fetching data for {ticker}: {str(e)}")
             raise ValueError(f"Error fetching data for {ticker}: {str(e)}") from e
 
     def get_company_info(self, ticker: str) -> dict[str, Any]:
@@ -128,55 +102,23 @@ class StockDataProvider:
             return cast(dict[str, Any], cached)
 
         info: dict[str, Any] = {}
-
-        # 1. Fetch Sector/Industry from Search API
         try:
-            url_search = (
-                f"https://query2.finance.yahoo.com/v1/finance/search?q={ticker}"
-            )
-            response_search = self.session.get(url_search, timeout=10)
-            if response_search.status_code == 200:
-                data_search = response_search.json()
-                if data_search.get("quotes"):
-                    quote_s = data_search["quotes"][0]
-                    info.update(
-                        {
-                            "sector": quote_s.get("sector"),
-                            "industry": quote_s.get("industry"),
-                            "exchange": quote_s.get("exchange"),
-                            "type": quote_s.get("quoteType"),
-                        }
-                    )
+            url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}"
+            response = self.session.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("quoteResponse", {}).get("result"):
+                    quote = data["quoteResponse"]["result"][0]
+                    info = {
+                        "sector": quote.get("sector"),
+                        "industry": quote.get("industry"),
+                        "marketCap": quote.get("marketCap"),
+                        "previousClose": quote.get("regularMarketPreviousClose"),
+                        "longName": quote.get("longName"),
+                    }
         except Exception as e:
-            logger.warning(f"Error fetching sector data for {ticker}: {e}")
-
-        # 2. Fetch Market Cap from Quote API (requires crumb)
-        try:
-            crumb = self._get_crumb()
-            if crumb:
-                url_quote = (
-                    "https://query1.finance.yahoo.com/v7/finance/quote"
-                    f"?symbols={ticker}&crumb={crumb}"
-                )
-                response_quote = self.session.get(url_quote, timeout=10)
-                if response_quote.status_code == 200:
-                    data_quote = response_quote.json()
-                    if data_quote.get("quoteResponse", {}).get("result"):
-                        quote_q = data_quote["quoteResponse"]["result"][0]
-                        info["marketCap"] = quote_q.get("marketCap")
-                        info["previousClose"] = quote_q.get(
-                            "regularMarketPreviousClose"
-                        )
-        except Exception as e:
-            logger.warning(f"Error fetching market cap for {ticker}: {e}")
+            logger.warning(f"Error fetching info for {ticker}: {e}")
 
         self.cache.set(cache_key, info)
         self.last_latency = (time.time() - start_time) * 1000
         return info
-
-    def validate_ticker(self, ticker: str) -> bool:
-        try:
-            df = self.get_stock_data(ticker, "1m")
-            return not df.empty
-        except Exception:
-            return False
