@@ -7,12 +7,13 @@ import { fetchModels, selectBestModel, testConnection, type ModelOption } from '
 
 const providerOptions: { value: 'ollama' | 'auto'; labelKey: string }[] = [
   { value: 'ollama', labelKey: 'providerOllama' },
-  { value: 'auto', labelKey: 'Use Your API Key' },
+  { value: 'auto', labelKey: 'Auto-Detect / App Default' },
 ];
 
 function canFetchModels(config: AIProviderConfig) {
   if (config.provider === 'ollama') return Boolean(config.baseUrl);
-  return Boolean(config.apiKey);
+  // Auto-detect is always available because it fallbacks to backend
+  return true;
 }
 
 export function AISettingsModal() {
@@ -163,15 +164,15 @@ export function AISettingsModal() {
           ) : (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <label className="block">
-                <span className="mb-1 block text-sm text-slate-300">API Key</span>
+                <span className="mb-1 block text-sm text-slate-300">API Key (Optional)</span>
                 <input 
                   type="password" 
                   value={form.apiKey || ''} 
                   onChange={(e) => update({ apiKey: e.target.value, selectedModel: '' })} 
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                  placeholder="Paste your API key"
+                  placeholder="Paste your API key or leave blank for App Default"
                 />
-                <p className="mt-2 text-xs text-slate-400">Auto-detects OpenAI, Anthropic, Gemini, Groq, OpenRouter.</p>
+                <p className="mt-2 text-xs text-slate-400">If blank, the application will use its default provider (Groq/Llama-3).</p>
               </label>
               
               <label className="block">
@@ -183,7 +184,7 @@ export function AISettingsModal() {
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors"
                   placeholder="e.g. https://api.together.xyz/v1"
                 />
-                <p className="mt-2 text-xs text-slate-400">Leave blank for auto-detection. Use for Together, DeepInfra, LM Studio, etc.</p>
+                <p className="mt-2 text-xs text-slate-400">Advanced: Use for custom OpenAI-compatible providers.</p>
               </label>
             </div>
           )}

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     
     # External APIs
     FINNHUB_API_KEY: str = os.getenv("FINNHUB_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     
     # CORS
     CORS_ORIGINS: list = ["*"]

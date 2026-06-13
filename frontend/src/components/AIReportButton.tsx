@@ -14,21 +14,35 @@ interface AIReportButtonProps {
 }
 
 const sectionKeys = [
-  'reportPriceAnalysis',
-  'reportPrediction',
-  'reportTechnicalOverview',
-  'reportRisks',
-  'reportRecommendation',
+  'EXECUTIVE SUMMARY',
+  'PRICE ANALYSIS',
+  'TECHNICAL OVERVIEW',
+  'PREDICTION ANALYSIS',
+  'BULLISH FACTORS',
+  'BEARISH FACTORS',
+  'RISK ASSESSMENT',
+  'SCENARIO ANALYSIS',
+  'RECOMMENDATION',
+  'CONCLUSION',
 ] as const;
 
-function extractSection(text: string, title: string, allTitles: string[]) {
-  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const nextTitles = allTitles.filter((item) => item !== title).map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const pattern = nextTitles
-    ? new RegExp(`(?:^|\\n)\\s*(?:#+\\s*)?${escaped}\\s*:?\\s*\\n?([\\s\\S]*?)(?=\\n\\s*(?:#+\\s*)?(?:${nextTitles})\\s*:?\\s*\\n|$)`, 'i')
-    : null;
-  const match = pattern?.exec(text);
-  return match?.[1]?.trim() || '';
+function extractSection(text: string, title: string) {
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const otherTitles = sectionKeys.filter(t => t !== title).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  
+  // Look for [TITLE] or TITLE: or just TITLE at start of line
+  const pattern = new RegExp(`(?:^|\\n)\\s*(?:\\[)?${escapedTitle}(?:\\])?:?\\s*\\n+([\\s\\S]*?)(?=\\n\\s*(?:\\[)?(?:${otherTitles})(?:\\])?:?\\s*\\n|$)`, 'i');
+  
+  const match = pattern.exec(text);
+  let content = match?.[1]?.trim() || '';
+  
+  // Clean up markdown symbols but keep some structure
+  return content
+    .replace(/#{1,6}\s?/g, '') // Remove headers
+    .replace(/\*\*/g, '')      // Remove bold
+    .replace(/\*/g, '•')       // Convert bullets
+    .replace(/_{1,2}/g, '')    // Remove italics/underline
+    .trim();
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -46,11 +60,10 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
   const [toast, setToast] = useState('');
   const reportRef = useRef<HTMLDivElement>(null);
   const currency = currencyForStock(stockData);
-  const sectionTitles = sectionKeys.map((key) => t(key));
-  const sections = sectionKeys.map((key, index) => ({
-    key,
-    title: sectionTitles[index],
-    content: extractSection(report, sectionTitles[index], sectionTitles) || (index === 2 ? report : ''),
+  
+  const sections = sectionKeys.map((title) => ({
+    title,
+    content: extractSection(report, title),
   }));
 
   const showToast = (message: string) => {
@@ -59,9 +72,13 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
   };
 
   const exportReport = async () => {
-    if (!isAIConfigured(aiProviderConfig)) {
-      setAiSettingsOpen(true);
-      return;
+    if (!isAIConfigured(aiProviderConfig) && !aiProviderConfig.apiKey) {
+      // If not configured, it will fallback to backend, so we check if backend is available or force settings
+      // For now, let's allow it if apiKey is missing but provider is auto
+      if (aiProviderConfig.provider !== 'auto' && aiProviderConfig.provider !== 'ollama') {
+         setAiSettingsOpen(true);
+         return;
+      }
     }
 
     const controller = new AbortController();
@@ -90,33 +107,22 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
         setReport(markdown);
       });
 
-      // Wait for two animation frames to ensure layout is stable
+      // Wait for layout to settle and charts to be ready
       await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+      await new Promise((resolve) => window.setTimeout(resolve, 1000)); // Extra time for charts
       
       if (!reportRef.current) throw new Error('Report render target unavailable');
       
-      // Check if element is actually renderable
-      const rect = reportRef.current.getBoundingClientRect();
-      if (rect.width === 0 || reportRef.current.scrollHeight === 0) {
-        throw new Error('Report content is not visible or empty');
-      }
-
       const canvas = await withTimeout(html2canvas(reportRef.current, {
         backgroundColor: '#ffffff',
-        scale: 1.5, // Lower scale for speed
+        scale: 2, // Higher scale for professional look
         useCORS: true,
         logging: false,
         allowTaint: true,
-        windowWidth: 794, // Fixed A4 width in px at 96 DPI
-      }), 45000, 'Report capture timed out. The report might be too long.');
+        windowWidth: 850, // Slightly wider for better layout
+      }), 60000, 'Report capture timed out.');
 
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        throw new Error('Report capture failed to produce a valid image.');
-      }
-
-      const image = canvas.toDataURL('image/png', 1.0);
-      if (!image || image === 'data:,') throw new Error('Report capture produced a blank image');
-
+      const image = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -126,26 +132,23 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Add first page
-      pdf.addImage(image, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      pdf.addImage(image, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
       heightLeft -= pageHeight;
 
-      // Add subsequent pages if necessary
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(image, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        pdf.addImage(image, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
         heightLeft -= pageHeight;
       }
 
       const date = new Date().toISOString().split('T')[0];
-      const filename = `${stockData.profile.ticker}_AI_Report_${date}.pdf`;
+      const filename = `${stockData.profile.ticker}_Research_Report_${date}.pdf`;
       pdf.save(filename);
       showToast(t('aiReportSuccess'));
     } catch (error) {
       console.error('Report generation error:', error);
-      const message = error instanceof Error ? error.message : t('aiError');
-      showToast(message);
+      showToast(error instanceof Error ? error.message : t('aiError'));
     } finally {
       setLoading(false);
     }
@@ -157,36 +160,68 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
         <FileText className="h-4 w-4" />
         {loading ? t('generatingReport') : t('exportAiReport')}
       </button>
+      
       {toast && (
         <div className="fixed bottom-5 left-5 z-[110] rounded-lg bg-slate-800 px-4 py-2 text-sm text-white shadow-xl">
           {toast}
         </div>
       )}
-      <div className="pointer-events-none fixed -left-[9999px] top-0 w-[794px] bg-white p-10 text-slate-950" ref={reportRef}>
-        <div className="mb-6 flex items-start justify-between border-b border-slate-300 pb-4">
+
+      {/* Hidden Report Template for PDF Capture */}
+      <div className="pointer-events-none fixed -left-[9999px] top-0 w-[850px] bg-white p-12 text-slate-900" ref={reportRef}>
+        <div className="mb-8 flex items-end justify-between border-b-4 border-slate-900 pb-6">
           <div>
-            <h1 className="text-3xl font-bold">{t('reportTitle', { ticker: stockData.profile.ticker })}</h1>
-            <p className="text-sm text-slate-600">{stockData.profile.name || stockData.profile.ticker}</p>
+            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">Equity Research Report</h1>
+            <p className="text-xl font-bold text-slate-600">{stockData.profile.name || stockData.profile.ticker} ({stockData.profile.ticker})</p>
           </div>
-          <p className="text-sm font-semibold text-red-700">{t('aiDisclaimerWatermark')}</p>
+          <div className="text-right">
+            <p className="text-sm font-bold uppercase text-slate-500">{new Date().toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+            <p className="text-xs font-black text-red-600 tracking-widest uppercase mt-1">Confidential / AI Generated</p>
+          </div>
         </div>
-        <div className="mb-6 grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-          <p><strong>{t('reportCompany')}:</strong> {stockData.profile.name || stockData.profile.ticker}</p>
-          <p><strong>{t('reportExchange')}:</strong> {stockData.profile.exchange || t('notAvailable')}</p>
-          <p><strong>{t('reportCurrency')}:</strong> {currency}</p>
-          <p><strong>{t('reportModelUsed')}:</strong> {stockData.prediction.model_used === 'rf' ? t('randomForest') : t('linear')}</p>
-          <p><strong>{t('reportDate')}:</strong> {new Date().toLocaleDateString()}</p>
-          <p><strong>{t('currentPrice')}:</strong> {stockData.profile.current_price ?? t('notAvailable')}</p>
+
+        <div className="mb-10 grid grid-cols-3 gap-6 rounded-xl bg-slate-50 p-6 border border-slate-200">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Company Overview</p>
+            <p className="text-sm"><strong>Sector:</strong> {stockData.profile.sector || 'N/A'}</p>
+            <p className="text-sm"><strong>Industry:</strong> {stockData.profile.industry || 'N/A'}</p>
+            <p className="text-sm"><strong>Exchange:</strong> {stockData.profile.exchange || 'N/A'}</p>
+          </div>
+          <div className="space-y-1 border-x border-slate-200 px-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Market Data</p>
+            <p className="text-sm"><strong>Price:</strong> {currency} {stockData.profile.current_price?.toLocaleString()}</p>
+            <p className="text-sm"><strong>Market Cap:</strong> {stockData.profile.market_cap ? `${currency} ${(stockData.profile.market_cap / 1e9).toFixed(2)}B` : 'N/A'}</p>
+            <p className="text-sm"><strong>Currency:</strong> {currency}</p>
+          </div>
+          <div className="space-y-1 pl-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">ML Model Output</p>
+            <p className="text-sm"><strong>Predicted:</strong> {currency} {stockData.prediction.predicted_price?.toLocaleString()}</p>
+            <p className="text-sm"><strong>Confidence:</strong> {(stockData.prediction.confidence * 100).toFixed(1)}%</p>
+            <p className="text-sm"><strong>Trend:</strong> <span className={stockData.prediction.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}>{stockData.prediction.trend?.toUpperCase()}</span></p>
+          </div>
         </div>
-        <div className="space-y-6 text-sm leading-6">
+
+        <div className="space-y-10">
           {sections.map((section) => (
-            <section key={section.key}>
-              <h2 className="mb-2 text-xl font-bold text-slate-950">{section.title}</h2>
-              <div className="whitespace-pre-wrap text-slate-800">{section.content || t('notAvailable')}</div>
+            <section key={section.title} className="break-inside-avoid">
+              <h2 className="mb-4 text-lg font-black uppercase tracking-tight text-slate-900 border-l-4 border-slate-900 pl-3 leading-none">
+                {section.title}
+              </h2>
+              <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700 font-medium">
+                {section.content || 'Analysis in progress...'}
+              </div>
             </section>
           ))}
         </div>
-        <p className="mt-8 border-t border-slate-300 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('aiDisclaimerWatermark')}</p>
+
+        <div className="mt-12 border-t border-slate-200 pt-8">
+          <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            End of Research Report • Generated by AI Intelligence Dashboard
+          </p>
+          <p className="mt-4 text-[9px] text-slate-400 text-justify leading-tight italic">
+            DISCLAIMER: This report is for informational purposes only and does not constitute financial advice. The analysis is generated using machine learning models and artificial intelligence based on historical data. Investing in securities involves risk. Always consult with a qualified financial advisor before making investment decisions.
+          </p>
+        </div>
       </div>
     </>
   );

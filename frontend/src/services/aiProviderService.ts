@@ -141,6 +141,17 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
   const provider = meta.provider;
   const baseUrl = normalizeBaseUrl(meta.baseUrl || config.baseUrl || '');
 
+  // If auto and no API key, try to fetch from backend proxy (default app key)
+  if (provider === 'openai' && !config.apiKey && !config.baseUrl) {
+    try {
+      const response = await checkedFetch('/api/ai/models', { signal });
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to fetch models from backend proxy:', error);
+      return [];
+    }
+  }
+
   if (provider === 'ollama') {
     const ollamaUrl = baseUrl || 'http://localhost:11434';
     try {
@@ -187,9 +198,17 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
   }
 
   // Fallback to generic OpenAI-compatible models endpoint
-  if (!config.apiKey && provider !== 'custom') throw new Error('API key is required.');
+  if (!config.apiKey && provider !== 'custom') {
+    // Try backend proxy if no key
+    try {
+      const response = await checkedFetch('/api/ai/models', { signal });
+      return await response.json();
+    } catch {
+      throw new Error('API key is required.');
+    }
+  }
   const modelsUrl = baseUrl ? `${baseUrl}/models` : 'https://api.openai.com/v1/models';
-  
+
   try {
     const response = await checkedFetch(modelsUrl, {
       headers: { Authorization: `Bearer ${config.apiKey}` },
@@ -211,7 +230,7 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
 
 export function selectBestModel(_provider: AiProvider, models: ModelOption[]) {
   // Try to find a sensible default
-  const priorities = ['gpt-4o', 'gpt-4', 'claude-3-5-sonnet', 'claude-3', 'gemini-1.5-pro', 'gemini-1.5-flash', 'llama-3', 'llama3', 'mixtral', 'gemma', 'qwen', 'mistral'];
+  const priorities = ['gpt-4o', 'gpt-4', 'claude-3-5-sonnet', 'claude-3', 'gemini-1.5-pro', 'gemini-1.5-flash', 'llama-3.3-70b', 'llama-3.1-70b', 'llama-3', 'llama3', 'mixtral', 'gemma', 'qwen', 'mistral'];
   for (const p of priorities) {
     const found = models.find(m => m.id.toLowerCase().includes(p));
     if (found) return found;
@@ -232,16 +251,26 @@ export async function testConnection(config: AIProviderConfig, signal?: AbortSig
 
 function buildSystemPrompt(stock: StockResponse, language: string): string {
   const currency = currencyForStock(stock);
-  const candles = stock.history.slice(-8);
+  const candles = stock.history.slice(-15); // More history for context
   return [
-    'You are a stock analysis assistant. Do not provide financial advice.',
-    `Respond in language code: ${language}.`,
+    'You are a senior equity research analyst. Your task is to provide a professional, detailed, and data-driven stock analysis report.',
+    'Follow these guidelines:',
+    '1. Use a professional, objective tone.',
+    '2. Use the provided stock data and technical indicators. Do not hallucinate data.',
+    '3. Format your response using clear section headers.',
+    '4. Provide detailed explanations for each section.',
+    '5. Do not include markdown artifacts like excessive asterisks or raw symbols in the final output text.',
+    `Respond in language: ${language}.`,
+    '',
     `Ticker: ${stock.profile.ticker}`,
     `Company: ${stock.profile.name || stock.profile.ticker}`,
-    `Current price: ${formatCurrency(stock.profile.current_price, currency)}`,
+    `Exchange: ${stock.profile.exchange}`,
+    `Sector: ${stock.profile.sector}`,
+    `Industry: ${stock.profile.industry}`,
+    `Current Price: ${formatCurrency(stock.profile.current_price, currency)}`,
     `Prediction: ${formatCurrency(stock.prediction.predicted_price, currency)}, trend ${stock.prediction.trend}, confidence ${Math.round(stock.prediction.confidence * 100)}%.`,
-    `Indicators: RMSE ${stock.metrics.rmse}, MAE ${stock.metrics.mae}, R2 ${stock.metrics.r2}.`,
-    `Last candles: ${JSON.stringify(candles)}`,
+    `Metrics: RMSE ${stock.metrics.rmse}, MAE ${stock.metrics.mae}, R2 ${stock.metrics.r2}.`,
+    `Recent History: ${JSON.stringify(candles)}`,
   ].join('\n');
 }
 
@@ -318,12 +347,33 @@ async function parseJsonLineStream(response: Response, onToken: (token: string) 
 
 export async function streamChat(config: AIProviderConfig, messages: ChatMessage[], signal: AbortSignal, onToken: (token: string) => void) {
   let effective = config.selectedModel ? config : await detectAndApplyModel(config, signal);
-  if (!effective.selectedModel) throw new Error('No model available for selected provider.');
 
   const attemptStream = async (currentConfig: AIProviderConfig) => {
     const meta = currentConfig.provider === 'auto' ? detectProviderFromKey(currentConfig.apiKey || '') : { provider: currentConfig.provider, baseUrl: currentConfig.baseUrl };
     const provider = meta.provider;
     const baseUrl = normalizeBaseUrl(meta.baseUrl || currentConfig.baseUrl || '');
+
+    // Fallback logic: User Key -> Ollama -> Backend Proxy
+    if (provider === 'openai' && !currentConfig.apiKey && !currentConfig.baseUrl) {
+      // Try backend proxy if no user key
+      try {
+        const response = await checkedFetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            model: currentConfig.selectedModel || 'llama-3.3-70b-versatile', 
+            messages, 
+            stream: true 
+          }),
+          signal,
+        }, 120000);
+        await parseOpenAIStream(response, onToken);
+        return;
+      } catch (error) {
+        console.error('Backend proxy chat failed:', error);
+        throw error;
+      }
+    }
 
     if (provider === 'ollama') {
       const ollamaUrl = baseUrl || 'http://localhost:11434';
@@ -337,7 +387,9 @@ export async function streamChat(config: AIProviderConfig, messages: ChatMessage
         }, 120000);
       } catch (error) {
         if (error instanceof TypeError || (error instanceof Error && error.message === 'Failed to fetch')) {
-          throw new Error('Ollama server not detected.\nStart Ollama and try again.');
+          // If Ollama fails, try backend proxy as fallback
+          const proxyConfig = { ...currentConfig, provider: 'auto' as const, apiKey: '', baseUrl: '' };
+          return attemptStream(proxyConfig);
         }
         throw error;
       }
@@ -378,7 +430,7 @@ export async function streamChat(config: AIProviderConfig, messages: ChatMessage
         },
         body: JSON.stringify({
           model: currentConfig.selectedModel,
-          max_tokens: 1400,
+          max_tokens: 2000,
           stream: true,
           system,
           messages: messages.filter((m) => m.role !== 'system'),
@@ -410,29 +462,60 @@ export async function streamChat(config: AIProviderConfig, messages: ChatMessage
   try {
     await attemptStream(effective);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('unavailable. Please select another model')) {
-      // Auto-fallback
-      effective = await detectAndApplyModel({ ...config, selectedModel: '' }, signal);
-      if (!effective.selectedModel) throw new Error('No available models found to fallback to.');
-      await attemptStream(effective);
+    if (error instanceof Error && (error.message.includes('unavailable') || error.message.includes('not found'))) {
+      // Auto-fallback to backend proxy if everything else fails
+      const fallbackConfig = { ...config, provider: 'auto' as const, apiKey: '', baseUrl: '', selectedModel: 'llama-3.3-70b-versatile' };
+      await attemptStream(fallbackConfig);
     } else {
       throw error;
     }
   }
 }
 
-
-
 export function buildChatMessages(stock: StockResponse, language: string, userMessages: ChatMessage[]) {
   return [{ role: 'system' as const, content: buildSystemPrompt(stock, language) }, ...userMessages];
 }
 
 export async function generateReport(config: AIProviderConfig, stock: StockResponse, language: string, signal: AbortSignal, onToken: (token: string) => void) {
-  // Use a shorter prompt for faster generation
-  const shorterPrompt = `Create a brief stock analysis report for ${stock.profile.ticker}: Price Analysis, Prediction, Technical Overview, Risks, Recommendation. Be extremely concise.`;
+  const reportPrompt = [
+    'Generate a comprehensive equity research report. Structure the report into the following exact sections, starting each with the bracketed title:',
+    '',
+    '[EXECUTIVE SUMMARY]',
+    '2-3 detailed paragraphs providing an overview, recent behavior, outlook, and sentiment.',
+    '',
+    '[PRICE ANALYSIS]',
+    'Detailed analysis of price movement, support/resistance, trends, and actual stock data provided.',
+    '',
+    '[TECHNICAL OVERVIEW]',
+    'In-depth discussion of technical indicators (MAs, volume, momentum) and their implications.',
+    '',
+    '[PREDICTION ANALYSIS]',
+    'Explain the machine learning prediction, predicted price, trend, and the significance of RMSE/MAE/R2 metrics.',
+    '',
+    '[BULLISH FACTORS]',
+    'Multiple points explaining bullish catalysts.',
+    '',
+    '[BEARISH FACTORS]',
+    'Multiple points explaining risks and bearish catalysts.',
+    '',
+    '[RISK ASSESSMENT]',
+    'Discuss volatility, macro conditions, and prediction uncertainty.',
+    '',
+    '[SCENARIO ANALYSIS]',
+    'Outline Bull, Base, and Bear cases.',
+    '',
+    '[RECOMMENDATION]',
+    'Provide a recommendation (Buy, Hold, etc.) with reasoning, avoiding financial advice guarantees.',
+    '',
+    '[CONCLUSION]',
+    'Balanced summary with a disclaimer.',
+    '',
+    'Ensure each section is fully populated and professional.',
+  ].join('\n');
+
   await streamChat(config, [
     { role: 'system', content: buildSystemPrompt(stock, language) },
-    { role: 'user', content: shorterPrompt },
+    { role: 'user', content: reportPrompt },
   ], signal, onToken);
 }
 

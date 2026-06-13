@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query, Header
+from fastapi import APIRouter, HTTPException, Query, Header, Request
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from schemas import (
     StockResponse,
     CompanyProfile,
@@ -17,6 +18,9 @@ from schemas import (
 from services.stock_service import stock_service
 from services import WatchlistService, HistoryService, PredictionService
 from schemas import PredictionRecord as PredictionRecordSchema
+from core.config import settings
+import httpx
+import json
 
 
 router = APIRouter()
@@ -144,3 +148,166 @@ async def get_predictions(
 @router.post("/predictions", response_model=PredictionRecord)
 async def save_prediction(prediction: PredictionRecord):
     return prediction_service.save_prediction(prediction)
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    model: Optional[str] = None
+    temperature: Optional[float] = 0.3
+    max_tokens: Optional[int] = 2000
+    stream: Optional[bool] = False
+
+
+class ModelOption(BaseModel):
+    id: str
+    name: str
+
+
+async def call_groq_api(
+    messages: List[Dict[str, str]],
+    model: str = "llama-3.3-70b-versatile",
+    temperature: float = 0.3,
+    max_tokens: int = 2000,
+    stream: bool = False,
+):
+    """Call Groq API with the default backend key."""
+    api_key = settings.GROQ_API_KEY
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Default AI provider not configured")
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": stream,
+    }
+    
+    timeout = httpx.Timeout(120.0, connect=10.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        if response.status_code != 200:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                error_detail = error_json.get("error", {}).get("message", error_detail)
+            except Exception:
+                pass
+            raise HTTPException(status_code=response.status_code, detail=error_detail)
+        
+        if stream:
+            return response
+        return response.json()
+
+
+async def fetch_groq_models():
+    """Fetch available models from Groq."""
+    api_key = settings.GROQ_API_KEY
+    if not api_key:
+        return []
+    
+    url = "https://api.groq.com/openai/v1/models"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    
+    try:
+        timeout = httpx.Timeout(30.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get("data", [])
+                return [ModelOption(id=m.get("id", ""), name=m.get("id", "")) for m in models if m.get("id")]
+    except Exception:
+        pass
+    return []
+
+
+@router.post("/ai/chat")
+async def ai_chat(request: ChatRequest):
+    """Proxy chat completion to Groq (default app key)."""
+    try:
+        messages = [{"role": m.role, "content": m.content} for m in request.messages]
+        
+        if request.stream:
+            async def event_generator():
+                async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": request.model or "llama-3.3-70b-versatile",
+                            "messages": messages,
+                            "temperature": request.temperature,
+                            "max_tokens": request.max_tokens,
+                            "stream": True,
+                        },
+                    )
+                    if response.status_code != 200:
+                        error_text = response.text
+                        yield f"data: {json.dumps({'error': error_text})}\n\n"
+                        return
+                    
+                    async for line in response.aiter_lines():
+                        if line.strip():
+                            yield f"{line}\n\n"
+                    yield "data: [DONE]\n\n"
+            
+            from fastapi.responses import StreamingResponse
+            return StreamingResponse(event_generator(), media_type="text/event-stream")
+        
+        result = await call_groq_api(
+            messages=messages,
+            model=request.model or "llama-3.3-70b-versatile",
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stream=False,
+        )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI chat error: {str(e)}")
+
+
+@router.get("/ai/models", response_model=List[ModelOption])
+async def ai_models():
+    """Get available models from default provider (Groq)."""
+    models = await fetch_groq_models()
+    if not models:
+        # Fallback to known models
+        return [
+            ModelOption(id="llama-3.3-70b-versatile", name="Llama 3.3 70B Versatile"),
+            ModelOption(id="llama-3.1-8b-instant", name="Llama 3.1 8B Instant"),
+            ModelOption(id="mixtral-8x7b-32768", name="Mixtral 8x7B"),
+            ModelOption(id="gemma2-9b-it", name="Gemma 2 9B"),
+        ]
+    return models
+
+
+@router.post("/ai/test")
+async def ai_test():
+    """Test connection to default AI provider."""
+    try:
+        models = await fetch_groq_models()
+        if models:
+            return {"status": "connected", "models_count": len(models)}
+        return {"status": "error", "message": "No models available"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
