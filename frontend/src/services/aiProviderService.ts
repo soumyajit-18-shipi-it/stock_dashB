@@ -80,7 +80,9 @@ function readableProviderError(status: number, body: string) {
     }
   }
 
-  if (status === 404) return 'API endpoint not found. Please check VITE_API_URL configuration.';
+  if (status === 404) {
+    return 'AI backend route not found (404). Please ensure the backend is deployed with the latest AI routes and VITE_API_URL is correct.';
+  }
   if (status === 401 || status === 403) return 'Invalid API key or unauthorized access.';
   if (status === 429) return 'Rate limit exceeded. Try again later.';
   if (status >= 500) return `Backend error (${status}). The AI service might be down.`;

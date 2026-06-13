@@ -26,8 +26,8 @@ interface UIState {
 }
 
 const defaultConfig: AIProviderConfig = {
-  provider: 'ollama',
-  baseUrl: 'http://localhost:11434',
+  provider: 'auto',
+  baseUrl: '',
 };
 
 function readConfig(): AIProviderConfig {
