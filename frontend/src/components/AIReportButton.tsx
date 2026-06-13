@@ -15,8 +15,9 @@ interface AIReportButtonProps {
 
 const sectionKeys = [
   'EXECUTIVE SUMMARY',
+  'COMPANY INFORMATION',
   'PRICE ANALYSIS',
-  'TECHNICAL OVERVIEW',
+  'TECHNICAL ANALYSIS',
   'PREDICTION ANALYSIS',
   'BULLISH FACTORS',
   'BEARISH FACTORS',
@@ -30,18 +31,26 @@ function extractSection(text: string, title: string) {
   const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const otherTitles = sectionKeys.filter(t => t !== title).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   
-  // Look for [TITLE] or TITLE: or just TITLE at start of line
+  // More robust pattern matching for [TITLE], TITLE:, or just TITLE at start of line
   const pattern = new RegExp(`(?:^|\\n)\\s*(?:\\[)?${escapedTitle}(?:\\])?:?\\s*\\n+([\\s\\S]*?)(?=\\n\\s*(?:\\[)?(?:${otherTitles})(?:\\])?:?\\s*\\n|$)`, 'i');
   
   const match = pattern.exec(text);
   let content = match?.[1]?.trim() || '';
   
-  // Clean up markdown symbols but keep some structure
+  if (!content) {
+    // Fallback search if the section header doesn't have brackets
+    const fallbackPattern = new RegExp(`${escapedTitle}:?\\s*\\n+([\\s\\S]*?)(?=\\n(?:${otherTitles})|$)`, 'i');
+    const fallbackMatch = fallbackPattern.exec(text);
+    content = fallbackMatch?.[1]?.trim() || '';
+  }
+
+  // Clean up markdown but preserve structure
   return content
     .replace(/#{1,6}\s?/g, '') // Remove headers
     .replace(/\*\*/g, '')      // Remove bold
     .replace(/\*/g, '•')       // Convert bullets
     .replace(/_{1,2}/g, '')    // Remove italics/underline
+    .replace(/`/g, '')         // Remove code ticks
     .trim();
 }
 
@@ -197,7 +206,7 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">ML Model Output</p>
             <p className="text-sm"><strong>Predicted:</strong> {currency} {stockData.prediction.predicted_price?.toLocaleString()}</p>
             <p className="text-sm"><strong>Confidence:</strong> {(stockData.prediction.confidence * 100).toFixed(1)}%</p>
-            <p className="text-sm"><strong>Trend:</strong> <span className={stockData.prediction.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}>{stockData.prediction.trend?.toUpperCase()}</span></p>
+            <p className="text-sm"><strong>Trend:</strong> <span className={stockData.prediction.trend === 'increase' ? 'text-emerald-600' : 'text-rose-600'}>{stockData.prediction.trend?.toUpperCase()}</span></p>
           </div>
         </div>
 
