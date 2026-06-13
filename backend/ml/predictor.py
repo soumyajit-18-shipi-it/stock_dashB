@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 predictor.py
 ------------
@@ -31,22 +30,13 @@ from typing import Dict, Tuple, Optional
 import pandas as pd
 import numpy as np
 
-=======
-from typing import cast
-
-import pandas as pd
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 from data.provider import StockDataProvider
 from features.engineering import FeatureEngineer
 from ml.base_model import BaseModel
 from ml.linear_model import LinearRegressionModel
 from ml.random_forest_model import RandomForestModel
-<<<<<<< HEAD
 from ml.ensemble import arbitrate, EnsembleResult
 from schemas import ModelEnum, TrendDirection, PredictionResult, ModelMetrics
-=======
-from schemas import ModelEnum, PredictionResult
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
 
 # IST = UTC + 5:30
@@ -92,7 +82,6 @@ def _model_is_stale(path: str) -> bool:
 
 
 class StockPredictor:
-<<<<<<< HEAD
     MODEL_DIR = "models"
     MODEL_FILES = {
         ModelEnum.LINEAR:        "linear.pkl",
@@ -149,22 +138,12 @@ class StockPredictor:
                 self._load_model(model_type)
 
         return self.models[model_type.value]
-=======
-    def __init__(self) -> None:
-        self.data_provider = StockDataProvider()
-        self.feature_engineer = FeatureEngineer()
-        self.models: dict[str, BaseModel] = {
-            "linear": LinearRegressionModel(),
-            "rf": RandomForestModel(),
-        }
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     # ------------------------------------------------------------------ #
     # Public API — single-model prediction                                 #
     # ------------------------------------------------------------------ #
 
     def predict(
-<<<<<<< HEAD
         self,
         ticker: str,
         model_type: ModelEnum = ModelEnum.LINEAR,
@@ -289,28 +268,3 @@ class StockPredictor:
         open_time  = now.replace(hour=_NSE_OPEN[0],  minute=_NSE_OPEN[1],  second=0, microsecond=0)
         close_time = now.replace(hour=_NSE_CLOSE[0], minute=_NSE_CLOSE[1], second=0, microsecond=0)
         return open_time <= now <= close_time
-=======
-        self, ticker: str, model_type: ModelEnum, range_key: str = "1y"
-    ) -> tuple[PredictionResult, dict[str, float]]:
-        df = self.data_provider.get_stock_data(ticker, range_key)
-        X, y = self.feature_engineer.prepare_training_data(df)
-
-        model = self.models.get(model_type.value, self.models["linear"])
-        model.train(X, y)
-
-        X_pred = self.feature_engineer.prepare_prediction_input(df)
-        prediction = model.predict(X_pred)[0]
-
-        result = PredictionResult(
-            ticker=ticker,
-            model=model_type.value,
-            predicted_price=float(prediction),
-            confidence=model.get_confidence_score(),
-            timestamp=pd.Timestamp.now().isoformat(),
-        )
-
-        return result, model.metrics
-
-    def is_trained(self, model_type: str) -> bool:
-        return cast(bool, self.models[model_type].is_trained())
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
