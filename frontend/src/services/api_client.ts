@@ -60,8 +60,15 @@ export const api = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || 'Failed to fetch stock data');
+      let errorMessage = 'Failed to fetch stock data';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.message || errorMessage;
+      } catch {
+        // Fallback if response is not JSON
+        errorMessage = `Server responded with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
     }
 
     return await response.json() as StockResponse;
