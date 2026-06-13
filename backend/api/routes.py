@@ -1,8 +1,8 @@
-<<<<<<< HEAD
+
 from fastapi import APIRouter, HTTPException, Query, Header, Request
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
-=======
+
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
@@ -17,14 +17,14 @@ from schemas import (
 from services.history_service import HistoryService
 from services.prediction_service import PredictionService
 from services.stock_service import stock_service
-<<<<<<< HEAD
+
 from services import WatchlistService, HistoryService, PredictionService
 from schemas import PredictionRecord as PredictionRecordSchema
 from core.config import settings
 import httpx
 import json
 
-=======
+
 from services.watchlist_service import WatchlistService
 >>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
@@ -110,7 +110,7 @@ async def get_predictions() -> list[PredictionRecord]:
 
 
 @router.post("/predictions", response_model=PredictionRecord)
-<<<<<<< HEAD
+
 async def save_prediction(prediction: PredictionRecord):
     return prediction_service.save_prediction(prediction)
 
@@ -205,7 +205,7 @@ async def ai_test(request: ChatRequest):
         return {"status": "error", "message": "No models available or connection failed"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-=======
+
 async def save_prediction(record: PredictionRecord) -> PredictionRecord:
     return prediction_service.save_prediction(record)
 >>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
