@@ -33,3 +33,4 @@ venv/
 models/
 
 .vercel
+.env*
