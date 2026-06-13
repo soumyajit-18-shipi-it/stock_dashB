@@ -24,6 +24,10 @@ import json
 
 
 router = APIRouter()
+
+@router.get("/test-route")
+async def test_route():
+    return {"message": "test route working"}
 watchlist_service = WatchlistService()
 history_service = HistoryService()
 prediction_service = PredictionService()
