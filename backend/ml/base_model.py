@@ -1,11 +1,18 @@
 from abc import ABC, abstractmethod
+<<<<<<< HEAD
 from typing import Optional
 import pandas as pd
+=======
+from typing import Any
+
+>>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
 class BaseModel(ABC):
+<<<<<<< HEAD
     """
     Abstract base for all stock prediction models.
 
@@ -27,6 +34,12 @@ class BaseModel(ABC):
     # ------------------------------------------------------------------ #
     # Abstract interface                                                   #
     # ------------------------------------------------------------------ #
+=======
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.model: Any = None
+        self.metrics = {"rmse": 0.0, "mae": 0.0, "r2": 0.0}
+>>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     @abstractmethod
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
@@ -36,6 +49,26 @@ class BaseModel(ABC):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         pass
 
+<<<<<<< HEAD
+=======
+    def calculate_metrics(
+        self, y_true: np.ndarray, y_pred: np.ndarray
+    ) -> dict[str, float]:
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        mae = mean_absolute_error(y_true, y_pred)
+        r2 = r2_score(y_true, y_pred)
+        self.metrics = {
+            "rmse": float(rmse),
+            "mae": float(mae),
+            "r2": float(r2),
+        }
+        return self.metrics
+
+    def get_confidence_score(self) -> float:
+        r2 = self.metrics.get("r2", 0.0)
+        return max(0.0, min(1.0, (r2 + 1) / 2))
+
+>>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
     @abstractmethod
     def save(self, path: str) -> None:
         pass

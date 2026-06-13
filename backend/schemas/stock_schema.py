@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 
 class DateRangeEnum(str, Enum):
@@ -28,23 +28,23 @@ class StockPricePoint(BaseModel):
     low: float
     close: float
     volume: int
-    ma7: Optional[float] = None
-    ma21: Optional[float] = None
+    ma7: float | None = None
+    ma21: float | None = None
 
 
 class CompanyProfile(BaseModel):
     ticker: str
-    name: Optional[str] = None
-    sector: Optional[str] = None
-    industry: Optional[str] = None
-    market_cap: Optional[float] = None
-    current_price: Optional[float] = None
-    previous_close: Optional[float] = None
-    currency: Optional[str] = None
-    exchange: Optional[str] = None
-    country: Optional[str] = None
-    week_52_high: Optional[float] = None
-    week_52_low: Optional[float] = None
+    name: str | None = None
+    sector: str | None = None
+    industry: str | None = None
+    market_cap: float | None = None
+    current_price: float | None = None
+    previous_close: float | None = None
+    currency: str | None = None
+    exchange: str | None = None
+    country: str | None = None
+    week_52_high: float | None = None
+    week_52_low: float | None = None
 
 
 class PredictionResult(BaseModel):
@@ -63,38 +63,38 @@ class ModelMetrics(BaseModel):
 class StockResponse(BaseModel):
     ticker: str
     profile: CompanyProfile
-    history: List[StockPricePoint]
+    history: list[StockPricePoint]
     prediction: PredictionResult
     metrics: ModelMetrics
     confidence: float = Field(ge=0, le=1)
 
 
 class WatchlistItem(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     ticker: str
-    name: Optional[str] = None
-    created_at: Optional[datetime] = None
+    name: str | None = None
+    created_at: datetime | None = None
 
 
 class WatchlistCreate(BaseModel):
     ticker: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class SearchHistoryItem(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     ticker: str
-    searched_at: Optional[datetime] = None
+    searched_at: datetime | None = None
 
 
 class PredictionRecord(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     ticker: str
     model: str
     predicted_price: float
-    actual_price: Optional[float] = None
+    actual_price: float | None = None
     confidence: float
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 class HealthResponse(BaseModel):

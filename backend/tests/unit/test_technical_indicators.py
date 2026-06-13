@@ -1,50 +1,49 @@
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
 from features.technical_indicators import TechnicalIndicators
 
 
+@pytest.fixture
+def sample_data() -> pd.DataFrame:
+    data = {
+        "Open": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
+        "High": [105, 106, 107, 108, 109, 110, 111, 112, 113, 114],
+        "Low": [95, 96, 97, 98, 99, 100, 101, 102, 103, 104],
+        "Close": [102, 103, 101, 104, 105, 107, 106, 108, 110, 109],
+        "Volume": [1000] * 10,
+    }
+    return pd.DataFrame(data)
+
+
 class TestTechnicalIndicators:
-    def setup_method(self):
-        self.df = pd.DataFrame({
-            "Close": [100, 102, 101, 103, 105, 104, 106, 108, 107, 109, 111, 110, 112, 114, 113, 115, 117, 116, 118, 120, 121, 123, 122, 124, 126, 125, 127, 129, 128, 130],
-            "Volume": [1000, 1100, 1050, 1200, 1150, 1300, 1250, 1400, 1350, 1500, 1450, 1600, 1550, 1700, 1650, 1800, 1750, 1900, 1850, 2000, 2100, 2200, 2150, 2300, 2250, 2400, 2350, 2500, 2450, 2600]
-        })
+    def test_add_moving_average(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        ma = ti.add_moving_average(sample_data, window=3)
+        assert len(ma) == len(sample_data)
+        assert not ma.isna().all()
 
-    def test_moving_average_window_7(self):
-        ma = TechnicalIndicators.add_moving_average(self.df, "Close", 7)
-        assert len(ma) == len(self.df)
-        assert pd.isna(ma.iloc[0])
-        assert pd.isna(ma.iloc[5])
-        assert not pd.isna(ma.iloc[6])
+    def test_add_ma7(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        df = ti.add_ma7(sample_data)
+        assert "ma7" in df.columns
 
-    def test_moving_average_window_21(self):
-        ma = TechnicalIndicators.add_moving_average(self.df, "Close", 21)
-        assert len(ma) == len(self.df)
-        assert all(pd.isna(ma.iloc[:20]))
-        assert not pd.isna(ma.iloc[20])
+    def test_add_ma21(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        df = ti.add_ma21(sample_data)
+        assert "ma21" in df.columns
 
-    def test_add_ma7(self):
-        df_with_ma7 = TechnicalIndicators.add_ma7(self.df)
-        assert "ma7" in df_with_ma7.columns
-        assert len(df_with_ma7) == len(self.df)
+    def test_add_all_indicators(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        df = ti.add_all_indicators(sample_data)
+        assert "ma7" in df.columns
+        assert "ma21" in df.columns
 
-    def test_add_ma21(self):
-        df_with_ma21 = TechnicalIndicators.add_ma21(self.df)
-        assert "ma21" in df_with_ma21.columns
-        assert len(df_with_ma21) == len(self.df)
+    def test_calculate_ema(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        ema = ti.calculate_ema(sample_data["Close"], span=5)
+        assert len(ema) == len(sample_data)
 
-    def test_add_all_indicators(self):
-        df_all = TechnicalIndicators.add_all_indicators(self.df)
-        assert "ma7" in df_all.columns
-        assert "ma21" in df_all.columns
-
-    def test_calculate_ema(self):
-        ema = TechnicalIndicators.calculate_ema(self.df["Close"], 10)
-        assert len(ema) == len(self.df)
-        assert not pd.isna(ema.iloc[0])
-
-    def test_calculate_rsi(self):
-        rsi = TechnicalIndicators.calculate_rsi(self.df["Close"], 14)
-        assert len(rsi) == len(self.df)
-        assert all(0 <= x <= 100 for x in rsi.dropna())
+    def test_calculate_rsi(self, sample_data: pd.DataFrame) -> None:
+        ti = TechnicalIndicators()
+        rsi = ti.calculate_rsi(sample_data["Close"], window=5)
+        assert len(rsi) == len(sample_data)

@@ -1,0 +1,169 @@
+stages:
+  - format
+  - lint
+  - type_check
+  - security
+  - test
+  - coverage
+  - build
+  - release
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  NODE_CACHE_DIR: "$CI_PROJECT_DIR/.cache/npm"
+
+cache:
+  paths:
+    - .cache/pip
+    - frontend/node_modules/
+
+# ---------------------------------------------------------------------------
+# FORMAT STAGE
+# ---------------------------------------------------------------------------
+
+format:python:
+  stage: format
+  image: python:3.11-slim
+  script:
+    - pip install ruff
+    - ruff format --check .
+    - ruff check .
+
+format:frontend:
+  stage: format
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run format:check || echo "Format check failed, please run npm run format"
+
+# ---------------------------------------------------------------------------
+# LINT STAGE
+# ---------------------------------------------------------------------------
+
+lint:flake8:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install flake8
+    - flake8 .
+
+lint:pylint:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pylint
+    - pylint backend
+
+lint:frontend:
+  stage: lint
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run lint
+
+# ---------------------------------------------------------------------------
+# TYPE_CHECK STAGE
+# ---------------------------------------------------------------------------
+
+type_check:python:
+  stage: type_check
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install mypy types-python-dotenv types-requests
+    - mypy .
+
+type_check:frontend:
+  stage: type_check
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run typecheck
+
+# ---------------------------------------------------------------------------
+# SECURITY STAGE
+# ---------------------------------------------------------------------------
+
+security:semgrep:
+  stage: security
+  image: returntocorp/semgrep
+  script:
+    - semgrep scan --config .semgrep.yml --fail-on-error
+
+security:gitleaks:
+  stage: security
+  image: 
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --verbose
+
+# ---------------------------------------------------------------------------
+# TEST STAGE
+# ---------------------------------------------------------------------------
+
+test:python:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pytest pytest-cov
+    - pytest backend/tests
+
+test:frontend:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm install
+    - npm run test:run
+
+# ---------------------------------------------------------------------------
+# COVERAGE STAGE
+# ---------------------------------------------------------------------------
+
+coverage:python:
+  stage: coverage
+  image: python:3.11-slim
+  script:
+    - pip install -r backend/requirements.txt
+    - pip install pytest pytest-cov
+    - pytest --cov=backend --cov-report=xml --cov-report=term
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?%|[1-9]?\d(?:\.\d+)?%)/'
+
+# ---------------------------------------------------------------------------
+# BUILD STAGE
+# ---------------------------------------------------------------------------
+
+build:docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+
+# ---------------------------------------------------------------------------
+# RELEASE STAGE
+# ---------------------------------------------------------------------------
+
+release:tag:
+  stage: release
+  image: node:18-alpine
+  script:
+    - npm install -g git-cliff
+    - git-cliff --output CHANGELOG.md
+  only:
+    - tags

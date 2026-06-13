@@ -1,31 +1,24 @@
-from typing import List, Optional
-from datetime import datetime
+from typing import Any
+
 from database.supabase_client import get_supabase_client
 from schemas import PredictionRecord
 
 
 class PredictionService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = get_supabase_client()
 
-    def get_predictions(self, ticker: Optional[str] = None, limit: int = 100) -> List[PredictionRecord]:
-        query = self.client.table("predictions").select("*")
-        if ticker:
-            query = query.eq("ticker", ticker)
-        response = query.order("created_at", desc=True).limit(limit).execute()
-        return [PredictionRecord(**item) for item in response.data]
+    def get_predictions(self, user_id: str | None) -> list[dict[str, Any]]:
+        response = (
+            self.client.table("predictions")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return list(response.data)
 
-    def save_prediction(self, prediction: PredictionRecord) -> PredictionRecord:
-        data = {
-            "ticker": prediction.ticker,
-            "model": prediction.model,
-            "predicted_price": prediction.predicted_price,
-            "actual_price": prediction.actual_price,
-            "confidence": prediction.confidence,
-        }
+    def save_prediction(self, record: PredictionRecord) -> dict[str, Any]:
+        data = record.dict()
         response = self.client.table("predictions").insert(data).execute()
-        return PredictionRecord(**response.data[0])
-
-    def update_actual_price(self, prediction_id: str, actual_price: float) -> bool:
-        response = self.client.table("predictions").update({"actual_price": actual_price}).eq("id", prediction_id).execute()
-        return len(response.data) > 0
+        return dict(response.data[0])
