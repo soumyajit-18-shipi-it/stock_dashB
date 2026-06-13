@@ -9,7 +9,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
 
-<<<<<<< HEAD
 class RandomForestModel(BaseModel):
     """
     Random Forest regressor tuned for financial time-series.
@@ -43,15 +42,6 @@ class RandomForestModel(BaseModel):
     # ------------------------------------------------------------------ #
     # Training                                                             #
     # ------------------------------------------------------------------ #
-=======
-class RandomForestModel(BaseModel):  # type: ignore[misc]
-    def __init__(self) -> None:
-        super().__init__("rf")
-        self.model = RandomForestRegressor(
-            n_estimators=100, max_depth=10, random_state=42, n_jobs=-1
-        )
-        self.metrics: dict[str, float] = {}
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
         self.feature_names_ = list(X.columns) if isinstance(X, pd.DataFrame) else []
@@ -86,7 +76,6 @@ class RandomForestModel(BaseModel):  # type: ignore[misc]
     # ------------------------------------------------------------------ #
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-<<<<<<< HEAD
         if not self.is_trained():
             raise ValueError("RandomForestModel has not been trained yet.")
         X_arr = X.values if isinstance(X, pd.DataFrame) else X
@@ -128,12 +117,6 @@ class RandomForestModel(BaseModel):  # type: ignore[misc]
             },
             path,
         )
-=======
-        return cast(np.ndarray, self.model.predict(X))
-
-    def save(self, path: str) -> None:
-        joblib.dump({"model": self.model, "metrics": self.metrics}, path)
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     def load(self, path: str) -> bool:
         if not os.path.exists(path):
@@ -154,8 +137,4 @@ class RandomForestModel(BaseModel):  # type: ignore[misc]
             self.model is not None
             and hasattr(self.model, "estimators_")
             and len(self.model.estimators_) > 0
-<<<<<<< HEAD
         )
-=======
-        )
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65

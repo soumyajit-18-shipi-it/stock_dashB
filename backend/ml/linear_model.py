@@ -7,7 +7,6 @@ import pandas as pd
 from ml.base_model import BaseModel
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
-<<<<<<< HEAD
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from ml.base_model import BaseModel
@@ -36,15 +35,6 @@ class LinearRegressionModel(BaseModel):
     # ------------------------------------------------------------------ #
     # Training                                                             #
     # ------------------------------------------------------------------ #
-=======
-
-
-class LinearRegressionModel(BaseModel):  # type: ignore[misc]
-    def __init__(self) -> None:
-        super().__init__("linear")
-        self.model = LinearRegression()
-        self.metrics: dict[str, float] = {}
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
         X_arr = X.values if isinstance(X, pd.DataFrame) else X
@@ -62,7 +52,6 @@ class LinearRegressionModel(BaseModel):  # type: ignore[misc]
     # ------------------------------------------------------------------ #
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-<<<<<<< HEAD
         if not self.is_trained():
             raise ValueError("LinearRegressionModel has not been trained yet.")
         X_arr = X.values if isinstance(X, pd.DataFrame) else X
@@ -71,9 +60,6 @@ class LinearRegressionModel(BaseModel):  # type: ignore[misc]
     # ------------------------------------------------------------------ #
     # Persistence                                                          #
     # ------------------------------------------------------------------ #
-=======
-        return cast(np.ndarray, self.model.predict(X))
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
     def save(self, path: str) -> None:
         joblib.dump({"model": self.model, "metrics": self.metrics}, path)

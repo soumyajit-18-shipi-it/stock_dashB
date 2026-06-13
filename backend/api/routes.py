@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 from schemas import (
     DateRangeEnum,
     ModelEnum,
@@ -26,7 +25,6 @@ import json
 
 
 from services.watchlist_service import WatchlistService
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
 
 router = APIRouter()
 
@@ -208,4 +206,3 @@ async def ai_test(request: ChatRequest):
 
 async def save_prediction(record: PredictionRecord) -> PredictionRecord:
     return prediction_service.save_prediction(record)
->>>>>>> 43c89386f948b8a790430e72f627b7b9a714bb65
