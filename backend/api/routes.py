@@ -53,13 +53,13 @@ async def debug_data_pipeline(ticker: str = "AAPL") -> dict[str, Any]:
 @router.get("/stock/{ticker}", response_model=StockResponse)
 async def get_stock(
     ticker: str,
-    date_range: DateRangeEnum = DateRangeEnum.ONE_YEAR,
-    model_type: ModelEnum = ModelEnum.LINEAR,
+    range: DateRangeEnum = DateRangeEnum.ONE_YEAR,
+    model: ModelEnum = ModelEnum.LINEAR,
 ) -> StockResponse:
     try:
         # 1. Fetch analysis
         analysis = await stock_service.get_full_stock_analysis(
-            ticker, date_range, model_type
+            ticker, range, model
         )
 
         # 2. Add to search history (silently)

@@ -104,39 +104,50 @@ class StockPredictor:
     def _ensure_model_dir(self) -> None:
         os.makedirs(self.MODEL_DIR, exist_ok=True)
 
-    def _get_model_path(self, model_type: ModelEnum) -> str:
-        filename = self.MODEL_FILES.get(model_type, "linear.pkl")
+    def _get_model_path(self, model_type: ModelEnum, ticker: str, range_key: str) -> str:
+        filename = f"{ticker.lower()}_{range_key}_{self.MODEL_FILES.get(model_type, 'linear.pkl')}"
         return os.path.join(self.MODEL_DIR, filename)
 
-    def _load_model(self, model_type: ModelEnum) -> bool:
+    def _load_model(self, model_type: ModelEnum, ticker: str, range_key: str) -> bool:
         model = self.models.get(model_type.value)
         if model:
-            return model.load(self._get_model_path(model_type))
+            path = self._get_model_path(model_type, ticker, range_key)
+            res = model.load(path)
+            print(f"[DEBUG] _load_model: path={path}, res={res}, is_trained={model.is_trained()}")
+            return res
         return False
 
-    def _train_model(self, model_type: ModelEnum, df: pd.DataFrame) -> None:
+    def _train_model(self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str) -> None:
         model = self.models.get(model_type.value)
         if model:
+            path = self._get_model_path(model_type, ticker, range_key)
             X, y = self.feature_engineer.prepare_training_data(df)
+            print(f"[DEBUG] _train_model: path={path}, X shape={X.shape}, model class={model.__class__.__name__}")
             model.train(X, y)
-            model.save(self._get_model_path(model_type))
+            print(f"[DEBUG] _train_model after train: is_trained={model.is_trained()}")
+            model.save(path)
 
-    def _get_or_train(self, model_type: ModelEnum, df: pd.DataFrame) -> BaseModel:
+    def _get_or_train(self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str) -> BaseModel:
         """
         Load model from disk unless it is stale; train from scratch if needed.
         """
-        path = self._get_model_path(model_type)
+        path = self._get_model_path(model_type, ticker, range_key)
         model = self.models[model_type.value]
+        print(f"[DEBUG] _get_or_train start: path={path}, is_trained={model.is_trained()}, stale={_model_is_stale(path)}")
 
         if _model_is_stale(path):
-            self._train_model(model_type, df)
-            self._load_model(model_type)
+            print(f"[DEBUG] _get_or_train: model is stale, training...")
+            self._train_model(model_type, df, ticker, range_key)
+            self._load_model(model_type, ticker, range_key)
         else:
-            loaded = self._load_model(model_type)
+            print(f"[DEBUG] _get_or_train: model not stale, loading...")
+            loaded = self._load_model(model_type, ticker, range_key)
             if not loaded or not model.is_trained():
-                self._train_model(model_type, df)
-                self._load_model(model_type)
+                print(f"[DEBUG] _get_or_train: loaded={loaded}, is_trained={model.is_trained()}, training...")
+                self._train_model(model_type, df, ticker, range_key)
+                self._load_model(model_type, ticker, range_key)
 
+        print(f"[DEBUG] _get_or_train end: is_trained={model.is_trained()}")
         return self.models[model_type.value]
 
     # ------------------------------------------------------------------ #
@@ -155,8 +166,9 @@ class StockPredictor:
         For production use, prefer `predict_ensemble` which combines
         both models and resolves disagreements automatically.
         """
-        df = self.data_provider.get_stock_data(ticker, range_key)
-        model = self._get_or_train(model_type, df)
+        fetch_range = "1y" if range_key == "1m" else range_key
+        df = self.data_provider.get_stock_data(ticker, fetch_range)
+        model = self._get_or_train(model_type, df, ticker, range_key)
 
         X_pred = self.feature_engineer.prepare_prediction_input(df)
         predicted_price = float(model.predict(X_pred)[0])
@@ -167,6 +179,10 @@ class StockPredictor:
             if predicted_price > last_close
             else TrendDirection.DECREASE
         )
+
+        import logging
+        p_logger = logging.getLogger("stock_dashboard")
+        p_logger.info(f"[ML Predict] Ticker: {ticker}, Range: {range_key}, Model: {model_type.value}, Predicted: {predicted_price:.4f}, Last Close: {last_close:.4f}")
 
         result = PredictionResult(
             predicted_price=round(predicted_price, 4),
@@ -199,10 +215,11 @@ class StockPredictor:
         ensemble_detail : EnsembleResult with per-model breakdown and
                           arbitration_reason string (suitable for UI tooltip)
         """
-        df = self.data_provider.get_stock_data(ticker, range_key)
+        fetch_range = "1y" if range_key == "1m" else range_key
+        df = self.data_provider.get_stock_data(ticker, fetch_range)
 
-        lin_model = self._get_or_train(ModelEnum.LINEAR, df)
-        rf_model  = self._get_or_train(ModelEnum.RANDOM_FOREST, df)
+        lin_model = self._get_or_train(ModelEnum.LINEAR, df, ticker, range_key)
+        rf_model  = self._get_or_train(ModelEnum.RANDOM_FOREST, df, ticker, range_key)
 
         X_pred = self.feature_engineer.prepare_prediction_input(df)
 
@@ -211,6 +228,10 @@ class StockPredictor:
         lin_conf  = lin_model.get_confidence_score()
         rf_conf   = rf_model.get_confidence_score()
         last_close = float(df["Close"].iloc[-1])
+
+        import logging
+        p_logger = logging.getLogger("stock_dashboard")
+        p_logger.info(f"[ML Ensemble] Ticker: {ticker}, Range: {range_key}, Linear Predicted: {lin_price:.4f}, RF Predicted: {rf_price:.4f}, Last Close: {last_close:.4f}")
 
         ensemble = arbitrate(
             linear_price=lin_price,
@@ -257,8 +278,8 @@ class StockPredictor:
     def force_retrain(self, ticker: str, range_key: str = "1y") -> None:
         """Unconditionally retrain both models for a given ticker."""
         df = self.data_provider.get_stock_data(ticker, range_key)
-        self._train_model(ModelEnum.LINEAR, df)
-        self._train_model(ModelEnum.RANDOM_FOREST, df)
+        self._train_model(ModelEnum.LINEAR, df, ticker, range_key)
+        self._train_model(ModelEnum.RANDOM_FOREST, df, ticker, range_key)
 
     def is_market_open(self) -> bool:
         """Return True if NSE/BSE is currently in session (IST, weekdays only)."""

@@ -45,8 +45,8 @@ class StockService:
         # 3. Merge Profile Data with Fallbacks
         profile = self._merge_profile_data(ticker, yahoo_info, finnhub_profile, df)
 
-        # 4. Feature Engineering
-        df_features = self.feature_engineer.prepare_features(df)
+        # 4. Feature Engineering for Chart
+        df_chart = self.feature_engineer.indicators.add_all_indicators(df)
 
         # 5. ML Prediction
         ml_start = time.time()
@@ -56,7 +56,7 @@ class StockService:
         ml_latency = (time.time() - ml_start) * 1000
 
         # 6. Format History
-        history = self._format_history(df_features)
+        history = self._format_history(df_chart)
 
         # Track metrics for debugging
         self.last_metrics = {
