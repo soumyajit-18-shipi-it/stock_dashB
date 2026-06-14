@@ -69,7 +69,7 @@ class AIService:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         temperature: float = 0.3,
-        max_tokens: int = 2000,
+        max_tokens: int = 8000,
     ) -> AsyncGenerator[str, None]:
         """Stream chat completions from various providers with fallback."""
         
@@ -176,7 +176,11 @@ class AIService:
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{"role": "user" if m["role"].lower() == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"].lower() != "system"],
-                "systemInstruction": {"parts": [{"text": next((m["content"] for m in messages if m["role"].lower() == "system"), "")}]}
+                "systemInstruction": {"parts": [{"text": next((m["content"] for m in messages if m["role"].lower() == "system"), "")}]},
+                "generationConfig": {
+                    "maxOutputTokens": max_tokens,
+                    "temperature": temperature
+                }
             }
 
         async with httpx.AsyncClient(timeout=timeout) as client:

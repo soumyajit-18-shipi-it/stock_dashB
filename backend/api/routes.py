@@ -128,7 +128,7 @@ class ChatRequest(BaseModel):
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     temperature: Optional[float] = 0.3
-    max_tokens: Optional[int] = 2000
+    max_tokens: Optional[int] = 8000
     stream: Optional[bool] = False
 
 
