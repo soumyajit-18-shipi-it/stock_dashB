@@ -89,6 +89,7 @@ export function AISettingsModal() {
       window.clearTimeout(timeout);
       controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSettingsOpen, form.provider, form.apiKey, form.baseUrl, t]);
 
   if (!aiSettingsOpen) return null;

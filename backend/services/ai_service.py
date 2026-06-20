@@ -1,27 +1,34 @@
 import json
 import logging
 import httpx
-import time
-from typing import List, Dict, Any, Optional, AsyncGenerator
-from fastapi import HTTPException
+from typing import List, Dict, Optional, AsyncGenerator, cast
+
 from core.config import settings
 
 logger = logging.getLogger("stock_dashboard")
 
+
 class AIService:
-    def __init__(self):
+    def __init__(self) -> None:
+
         # Default timeouts
         self.default_timeout = httpx.Timeout(60.0, connect=5.0)
         self.ollama_timeout = httpx.Timeout(5.0, connect=2.0)
 
-    async def get_models(self, provider: str, api_key: Optional[str] = None, base_url: Optional[str] = None) -> List[Dict[str, str]]:   
+    async def get_models(
+        self,
+        provider: str,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> List[Dict[str, str]]:
         """Fetch available models for a provider."""
         # Normalize provider
         p = provider.lower() if provider else "groq"
-        if p == "auto": p = "groq"
+        if p == "auto":
+            p = "groq"
 
         logger.info(f"Fetching models for provider: {p}")
-        
+
         if p == "ollama":
             url = f"{base_url or 'http://localhost:11434'}/api/tags"
             try:
@@ -42,7 +49,8 @@ class AIService:
         # Special case for Gemini
         if p == "gemini":
             key = api_key or settings.GEMINI_API_KEY
-            if not key: return []
+            if not key:
+                return []
             url = f"https://generativelanguage.googleapis.com/v1/models?key={key}"
             headers = {}
 
@@ -53,9 +61,20 @@ class AIService:
                     data = response.json()
                     models = data.get("data", []) if isinstance(data, dict) else data
                     if p == "gemini":
-                        return [{"id": m["name"].replace("models/", ""), "name": m["displayName"]} for m in models if "models/" in m.get("name", "")]
+                        return [
+                            {
+                                "id": m["name"].replace("models/", ""),
+                                "name": m["displayName"],
+                            }
+                            for m in models
+                            if "models/" in m.get("name", "")
+                        ]
 
-                    return [{"id": m.get("id", ""), "name": m.get("id", "")} for m in models if m.get("id")]
+                    return [
+                        {"id": m.get("id", ""), "name": m.get("id", "")}
+                        for m in models
+                        if m.get("id")
+                    ]
         except Exception as e:
             logger.error(f"Models fetch failed for {p}: {str(e)}")
 
@@ -72,63 +91,87 @@ class AIService:
         max_tokens: int = 8000,
     ) -> AsyncGenerator[str, None]:
         """Stream chat completions from various providers with fallback."""
-        
+
         # Normalize provider
         p = provider.lower() if provider else "groq"
-        if p == "auto": p = "groq"
+        if p == "auto":
+            p = "groq"
 
         primary_config = {
             "provider": p,
             "api_key": api_key,
             "base_url": base_url,
-            "model": model
+            "model": model,
         }
-        
+
         configs = [primary_config]
-        
+
         # Add fallbacks only if they are different from primary
         if p != "ollama":
-            configs.append({"provider": "ollama", "api_key": None, "base_url": "http://localhost:11434", "model": "llama3"})
-        
+            configs.append(
+                {
+                    "provider": "ollama",
+                    "api_key": None,
+                    "base_url": "http://localhost:11434",
+                    "model": "llama3",
+                }
+            )
+
         if p != "groq" or (p == "groq" and api_key):
             # If primary was a user-provided groq key, fallback to app default groq key
-            configs.append({"provider": "groq", "api_key": settings.DEFAULT_GROQ_API_KEY, "base_url": "https://api.groq.com/openai/v1", "model": "llama-3.3-70b-versatile"})
+            configs.append(
+                {
+                    "provider": "groq",
+                    "api_key": settings.DEFAULT_GROQ_API_KEY,
+                    "base_url": "https://api.groq.com/openai/v1",
+                    "model": "llama-3.3-70b-versatile",
+                }
+            )
 
         # Filter out invalid configs and duplicates
         seen = set()
         valid_configs = []
         for c in configs:
             key = (c["provider"], c["api_key"], c["base_url"], c["model"])
-            if key in seen: continue
+            if key in seen:
+                continue
             seen.add(key)
-            
-            if c["provider"] == "groq" and not (c["api_key"] or settings.DEFAULT_GROQ_API_KEY): continue
-            if c["provider"] == "openai" and not c["api_key"] and not c["base_url"]: continue
+
+            if c["provider"] == "groq" and not (
+                c["api_key"] or settings.DEFAULT_GROQ_API_KEY
+            ):
+                continue
+            if c["provider"] == "openai" and not c["api_key"] and not c["base_url"]:
+                continue
             valid_configs.append(c)
 
         last_error = None
         for config in valid_configs:
-            logger.info(f"Attempting stream: provider={config['provider']}, model={config['model']}")
+            logger.info(
+                f"Attempting stream: provider={config['provider']}, model={config['model']}"
+            )
             try:
                 success = False
                 async for chunk in self._attempt_stream(
                     messages=messages,
-                    provider=config["provider"],
+                    provider=cast(str, config["provider"]),
                     model=config["model"],
                     api_key=config["api_key"],
                     base_url=config["base_url"],
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
                 ):
                     yield chunk
                     success = True
-                
+
                 if success:
                     logger.info(f"Stream successful with {config['provider']}")
                     yield "data: [DONE]\n\n"
                     return
             except Exception as e:
-                logger.error(f"Stream attempt failed for {config['provider']}: {str(e)}")
+                logger.error(
+                    f"Stream attempt failed for {config['provider']}: {str(e)}"
+                )
                 last_error = e
                 continue
 
@@ -162,11 +205,7 @@ class AIService:
         if provider == "ollama":
             timeout = self.ollama_timeout
             url = f"{base_url or 'http://localhost:11434'}/api/chat"
-            payload = {
-                "model": model or "llama3",
-                "messages": messages,
-                "stream": True
-            }
+            payload = {"model": model or "llama3", "messages": messages, "stream": True}
 
         # Special handling for Gemini
         if provider == "gemini":
@@ -175,37 +214,72 @@ class AIService:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:streamGenerateContent?alt=sse&key={key}"
             headers = {"Content-Type": "application/json"}
             payload = {
-                "contents": [{"role": "user" if m["role"].lower() == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"].lower() != "system"],
-                "systemInstruction": {"parts": [{"text": next((m["content"] for m in messages if m["role"].lower() == "system"), "")}]},
+                "contents": [
+                    {
+                        "role": "user" if m["role"].lower() == "user" else "model",
+                        "parts": [{"text": m["content"]}],
+                    }
+                    for m in messages
+                    if m["role"].lower() != "system"
+                ],
+                "systemInstruction": {
+                    "parts": [
+                        {
+                            "text": next(
+                                (
+                                    m["content"]
+                                    for m in messages
+                                    if m["role"].lower() == "system"
+                                ),
+                                "",
+                            )
+                        }
+                    ]
+                },
                 "generationConfig": {
                     "maxOutputTokens": max_tokens,
-                    "temperature": temperature
-                }
+                    "temperature": temperature,
+                },
             }
 
         async with httpx.AsyncClient(timeout=timeout) as client:
             if provider == "gemini":
-                async with client.stream("POST", url, headers=headers, json=payload) as response:
+                async with client.stream(
+                    "POST", url, headers=headers, json=payload
+                ) as response:
                     if response.status_code != 200:
                         error_body = await response.aread()
-                        raise Exception(f"Gemini error ({response.status_code}): {error_body.decode()}")
+                        raise Exception(
+                            f"Gemini error ({response.status_code}): {error_body.decode()}"
+                        )
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             try:
                                 data = json.loads(line[6:])
-                                text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                                text = (
+                                    data.get("candidates", [{}])[0]
+                                    .get("content", {})
+                                    .get("parts", [{}])[0]
+                                    .get("text", "")
+                                )
                                 if text:
                                     yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
-                            except: pass
+                            except Exception:
+                                pass
                 return
 
-            async with client.stream("POST", url, headers=headers, json=payload) as response:
+            async with client.stream(
+                "POST", url, headers=headers, json=payload
+            ) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    raise Exception(f"{provider} error ({response.status_code}): {error_text.decode()}")
+                    raise Exception(
+                        f"{provider} error ({response.status_code}): {error_text.decode()}"
+                    )
 
                 async for line in response.aiter_lines():
-                    if not line.strip(): continue
+                    if not line.strip():
+                        continue
 
                     if provider == "ollama":
                         try:
@@ -215,12 +289,13 @@ class AIService:
                                 yield f"data: {json.dumps({'choices': [{'delta': {'content': token}}]})}\n\n"
                             if data.get("done"):
                                 break
-                        except: pass
+                        except Exception:
+                            pass
                     else:
                         if line.startswith("{"):
-                             yield f"data: {line}\n\n"
+                            yield f"data: {line}\n\n"
                         else:
-                             yield f"{line}\n\n"
+                            yield f"{line}\n\n"
 
     def _get_default_base_url(self, provider: str) -> str:
         defaults = {
@@ -270,5 +345,6 @@ class AIService:
                 {"id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B"},
             ]
         return []
+
 
 ai_service = AIService()

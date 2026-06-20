@@ -1,11 +1,8 @@
-
-from fastapi import APIRouter, HTTPException, Query, Header, Request
-from typing import List, Optional, Dict, Any
+import json
+from typing import List, Optional, Any, cast
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from typing import Any, cast
-
-from fastapi import APIRouter, HTTPException
 from schemas import (
     DateRangeEnum,
     ModelEnum,
@@ -16,21 +13,17 @@ from schemas import (
 from services.history_service import HistoryService
 from services.prediction_service import PredictionService
 from services.stock_service import stock_service
-
-from services import WatchlistService, HistoryService, PredictionService
-from schemas import PredictionRecord as PredictionRecordSchema
-from core.config import settings
-import httpx
-import json
-
-
 from services.watchlist_service import WatchlistService
+from services.ai_service import ai_service
 
 router = APIRouter()
 
+
 @router.get("/test-route")
-async def test_route():
+async def test_route() -> Any:
     return {"message": "test route working"}
+
+
 watchlist_service = WatchlistService()
 history_service = HistoryService()
 prediction_service = PredictionService()
@@ -58,9 +51,7 @@ async def get_stock(
 ) -> StockResponse:
     try:
         # 1. Fetch analysis
-        analysis = await stock_service.get_full_stock_analysis(
-            ticker, range, model
-        )
+        analysis = await stock_service.get_full_stock_analysis(ticker, range, model)
 
         # 2. Add to search history (silently)
         try:
@@ -76,8 +67,8 @@ async def get_stock(
 
 
 @router.post("/watchlist/{ticker}", response_model=WatchlistItem)
-async def add_watchlist(ticker: str) -> WatchlistItem:
-    return watchlist_service.add_to_watchlist(None, ticker)
+async def add_watchlist(ticker: str) -> Any:
+    return cast(Any, watchlist_service.add_to_watchlist(None, ticker))
 
 
 @router.get("/watchlist", response_model=list[WatchlistItem])
@@ -108,12 +99,8 @@ async def get_predictions() -> list[PredictionRecord]:
 
 
 @router.post("/predictions", response_model=PredictionRecord)
-
-async def save_prediction(prediction: PredictionRecord):
+async def save_prediction(prediction: PredictionRecord) -> Any:
     return prediction_service.save_prediction(prediction)
-
-
-from services.ai_service import ai_service
 
 
 class ChatMessage(BaseModel):
@@ -138,47 +125,56 @@ class ModelOption(BaseModel):
 
 
 @router.post("/ai/chat")
-async def ai_chat(request: ChatRequest):
+async def ai_chat(request: ChatRequest) -> Any:
     """Chat completion with provider support and fallback."""
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
-    
+
+    prov = request.provider or "groq"
+    temp = request.temperature if request.temperature is not None else 0.3
+    max_tok = request.max_tokens if request.max_tokens is not None else 8000
+
     if request.stream:
         from fastapi.responses import StreamingResponse
+
         return StreamingResponse(
             ai_service.stream_chat(
                 messages=messages,
-                provider=request.provider,
+                provider=prov,
                 model=request.model,
                 api_key=request.api_key,
                 base_url=request.base_url,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
+                temperature=temp,
+                max_tokens=max_tok,
             ),
-            media_type="text/event-stream"
+            media_type="text/event-stream",
         )
-    
+
     # Non-streaming wrapper
     full_content = ""
     async for chunk in ai_service.stream_chat(
         messages=messages,
-        provider=request.provider,
+        provider=prov,
         model=request.model,
         api_key=request.api_key,
         base_url=request.base_url,
-        temperature=request.temperature,
-        max_tokens=request.max_tokens,
+        temperature=temp,
+        max_tokens=max_tok,
     ):
         if chunk.startswith("data: "):
             data_str = chunk[6:].strip()
-            if data_str == "[DONE]": break
+            if data_str == "[DONE]":
+                break
             try:
                 data = json.loads(data_str)
                 if "choices" in data:
-                    full_content += data["choices"][0].get("delta", {}).get("content", "")
+                    full_content += (
+                        data["choices"][0].get("delta", {}).get("content", "")
+                    )
                 elif "error" in data:
                     raise HTTPException(status_code=500, detail=data["error"])
-            except: pass
-    
+            except Exception:
+                pass
+
     return {"choices": [{"message": {"role": "assistant", "content": full_content}}]}
 
 
@@ -186,23 +182,25 @@ async def ai_chat(request: ChatRequest):
 async def ai_models(
     provider: str = "groq",
     api_key: Optional[str] = None,
-    base_url: Optional[str] = None
-):
+    base_url: Optional[str] = None,
+) -> List[ModelOption]:
     """Get available models from provider."""
     models = await ai_service.get_models(provider, api_key, base_url)
     return [ModelOption(id=m["id"], name=m["name"]) for m in models]
 
 
 @router.post("/ai/test")
-async def ai_test(request: ChatRequest):
+async def ai_test(request: ChatRequest) -> Any:
     """Test connection to AI provider."""
     try:
-        models = await ai_service.get_models(request.provider, request.api_key, request.base_url)
+        models = await ai_service.get_models(
+            request.provider or "groq", request.api_key, request.base_url
+        )
         if models:
             return {"status": "connected", "models_count": len(models)}
-        return {"status": "error", "message": "No models available or connection failed"}
+        return {
+            "status": "error",
+            "message": "No models available or connection failed",
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-async def save_prediction(record: PredictionRecord) -> PredictionRecord:
-    return prediction_service.save_prediction(record)

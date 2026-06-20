@@ -15,8 +15,8 @@ if root_dir not in sys.path:
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from backend.main import app  # noqa: E402
-from backend.database.supabase_client import get_supabase_client  # noqa: E402
+from main import app  # noqa: E402
+from database.supabase_client import get_supabase_client  # noqa: E402
 
 
 @pytest.fixture

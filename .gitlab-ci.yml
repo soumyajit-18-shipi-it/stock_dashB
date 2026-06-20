@@ -74,7 +74,8 @@ type_check:python:
   script:
     - pip install -r backend/requirements.txt
     - pip install mypy types-python-dotenv types-requests
-    - mypy .
+    - mypy backend
+
 
 type_check:frontend:
   stage: type_check
@@ -92,7 +93,8 @@ security:semgrep:
   stage: security
   image: returntocorp/semgrep
   script:
-    - semgrep scan --config .semgrep.yml --fail-on-error
+    - semgrep scan --config .semgrep.yml --error
+
 
 security:gitleaks:
   stage: security

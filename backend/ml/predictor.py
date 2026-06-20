@@ -23,12 +23,10 @@ two key additions for `stock_dashB`:
 """
 
 import os
-import time
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
 
 import pandas as pd
-import numpy as np
 
 from data.provider import StockDataProvider
 from features.engineering import FeatureEngineer
@@ -43,7 +41,7 @@ from schemas import ModelEnum, TrendDirection, PredictionResult, ModelMetrics
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # NSE/BSE session boundaries in IST
-_NSE_OPEN  = (9, 15)   # 09:15
+_NSE_OPEN = (9, 15)  # 09:15
 _NSE_CLOSE = (15, 30)  # 15:30
 
 
@@ -74,9 +72,9 @@ def _model_is_stale(path: str) -> bool:
     now = _ist_now()
     session_close = _session_close_today()
 
-    # Session has ended today and model was written before that close
-    if now >= session_close and mtime < session_close:
+    if mtime < session_close <= now:
         return True
+
 
     return False
 
@@ -84,15 +82,16 @@ def _model_is_stale(path: str) -> bool:
 class StockPredictor:
     MODEL_DIR = "models"
     MODEL_FILES = {
-        ModelEnum.LINEAR:        "linear.pkl",
+        ModelEnum.LINEAR: "linear.pkl",
         ModelEnum.RANDOM_FOREST: "random_forest.pkl",
     }
 
-    def __init__(self):
-        self.data_provider  = StockDataProvider()
+    def __init__(self) -> None:
+        self.data_provider = StockDataProvider()
+
         self.feature_engineer = FeatureEngineer()
         self.models: Dict[str, BaseModel] = {
-            ModelEnum.LINEAR.value:        LinearRegressionModel(),
+            ModelEnum.LINEAR.value: LinearRegressionModel(),
             ModelEnum.RANDOM_FOREST.value: RandomForestModel(),
         }
         self._ensure_model_dir()
@@ -104,7 +103,9 @@ class StockPredictor:
     def _ensure_model_dir(self) -> None:
         os.makedirs(self.MODEL_DIR, exist_ok=True)
 
-    def _get_model_path(self, model_type: ModelEnum, ticker: str, range_key: str) -> str:
+    def _get_model_path(
+        self, model_type: ModelEnum, ticker: str, range_key: str
+    ) -> str:
         filename = f"{ticker.lower()}_{range_key}_{self.MODEL_FILES.get(model_type, 'linear.pkl')}"
         return os.path.join(self.MODEL_DIR, filename)
 
@@ -113,37 +114,49 @@ class StockPredictor:
         if model:
             path = self._get_model_path(model_type, ticker, range_key)
             res = model.load(path)
-            print(f"[DEBUG] _load_model: path={path}, res={res}, is_trained={model.is_trained()}")
+            print(
+                f"[DEBUG] _load_model: path={path}, res={res}, is_trained={model.is_trained()}"
+            )
             return res
         return False
 
-    def _train_model(self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str) -> None:
+    def _train_model(
+        self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str
+    ) -> None:
         model = self.models.get(model_type.value)
         if model:
             path = self._get_model_path(model_type, ticker, range_key)
             X, y = self.feature_engineer.prepare_training_data(df)
-            print(f"[DEBUG] _train_model: path={path}, X shape={X.shape}, model class={model.__class__.__name__}")
+            print(
+                f"[DEBUG] _train_model: path={path}, X shape={X.shape}, model class={model.__class__.__name__}"
+            )
             model.train(X, y)
             print(f"[DEBUG] _train_model after train: is_trained={model.is_trained()}")
             model.save(path)
 
-    def _get_or_train(self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str) -> BaseModel:
+    def _get_or_train(
+        self, model_type: ModelEnum, df: pd.DataFrame, ticker: str, range_key: str
+    ) -> BaseModel:
         """
         Load model from disk unless it is stale; train from scratch if needed.
         """
         path = self._get_model_path(model_type, ticker, range_key)
         model = self.models[model_type.value]
-        print(f"[DEBUG] _get_or_train start: path={path}, is_trained={model.is_trained()}, stale={_model_is_stale(path)}")
+        print(
+            f"[DEBUG] _get_or_train start: path={path}, is_trained={model.is_trained()}, stale={_model_is_stale(path)}"
+        )
 
         if _model_is_stale(path):
-            print(f"[DEBUG] _get_or_train: model is stale, training...")
+            print("[DEBUG] _get_or_train: model is stale, training...")
             self._train_model(model_type, df, ticker, range_key)
             self._load_model(model_type, ticker, range_key)
         else:
-            print(f"[DEBUG] _get_or_train: model not stale, loading...")
+            print("[DEBUG] _get_or_train: model not stale, loading...")
             loaded = self._load_model(model_type, ticker, range_key)
             if not loaded or not model.is_trained():
-                print(f"[DEBUG] _get_or_train: loaded={loaded}, is_trained={model.is_trained()}, training...")
+                print(
+                    f"[DEBUG] _get_or_train: loaded={loaded}, is_trained={model.is_trained()}, training..."
+                )
                 self._train_model(model_type, df, ticker, range_key)
                 self._load_model(model_type, ticker, range_key)
 
@@ -181,8 +194,11 @@ class StockPredictor:
         )
 
         import logging
+
         p_logger = logging.getLogger("stock_dashboard")
-        p_logger.info(f"[ML Predict] Ticker: {ticker}, Range: {range_key}, Model: {model_type.value}, Predicted: {predicted_price:.4f}, Last Close: {last_close:.4f}")
+        p_logger.info(
+            f"[ML Predict] Ticker: {ticker}, Range: {range_key}, Model: {model_type.value}, Predicted: {predicted_price:.4f}, Last Close: {last_close:.4f}"
+        )
 
         result = PredictionResult(
             predicted_price=round(predicted_price, 4),
@@ -190,10 +206,9 @@ class StockPredictor:
             confidence=round(model.get_confidence_score(), 4),
             model_used=model_type.value,
         )
-        return result, ModelMetrics(**{
-            k: v for k, v in model.metrics.items()
-            if k in ("rmse", "mae", "r2")
-        })
+        return result, ModelMetrics(
+            **{k: v for k, v in model.metrics.items() if k in ("rmse", "mae", "r2")}
+        )
 
     # ------------------------------------------------------------------ #
     # Public API — ensemble prediction (recommended)                      #
@@ -219,19 +234,22 @@ class StockPredictor:
         df = self.data_provider.get_stock_data(ticker, fetch_range)
 
         lin_model = self._get_or_train(ModelEnum.LINEAR, df, ticker, range_key)
-        rf_model  = self._get_or_train(ModelEnum.RANDOM_FOREST, df, ticker, range_key)
+        rf_model = self._get_or_train(ModelEnum.RANDOM_FOREST, df, ticker, range_key)
 
         X_pred = self.feature_engineer.prepare_prediction_input(df)
 
         lin_price = float(lin_model.predict(X_pred)[0])
-        rf_price  = float(rf_model.predict(X_pred)[0])
-        lin_conf  = lin_model.get_confidence_score()
-        rf_conf   = rf_model.get_confidence_score()
+        rf_price = float(rf_model.predict(X_pred)[0])
+        lin_conf = lin_model.get_confidence_score()
+        rf_conf = rf_model.get_confidence_score()
         last_close = float(df["Close"].iloc[-1])
 
         import logging
+
         p_logger = logging.getLogger("stock_dashboard")
-        p_logger.info(f"[ML Ensemble] Ticker: {ticker}, Range: {range_key}, Linear Predicted: {lin_price:.4f}, RF Predicted: {rf_price:.4f}, Last Close: {last_close:.4f}")
+        p_logger.info(
+            f"[ML Ensemble] Ticker: {ticker}, Range: {range_key}, Linear Predicted: {lin_price:.4f}, RF Predicted: {rf_price:.4f}, Last Close: {last_close:.4f}"
+        )
 
         ensemble = arbitrate(
             linear_price=lin_price,
@@ -248,11 +266,7 @@ class StockPredictor:
         )
 
         # Fetch metrics from the winning model
-        winning_model = (
-            lin_model
-            if ensemble.model_used == "linear"
-            else rf_model
-        )
+        winning_model = lin_model if ensemble.model_used == "linear" else rf_model
         # When blended, use the higher-confidence model's metrics
         if ensemble.model_used == "ensemble":
             winning_model = lin_model if lin_conf >= rf_conf else rf_model
@@ -264,10 +278,13 @@ class StockPredictor:
             model_used=ensemble.model_used,
         )
 
-        metrics = ModelMetrics(**{
-            k: v for k, v in winning_model.metrics.items()
-            if k in ("rmse", "mae", "r2")
-        })
+        metrics = ModelMetrics(
+            **{
+                k: v
+                for k, v in winning_model.metrics.items()
+                if k in ("rmse", "mae", "r2")
+            }
+        )
 
         return result, metrics, ensemble
 
@@ -284,8 +301,12 @@ class StockPredictor:
     def is_market_open(self) -> bool:
         """Return True if NSE/BSE is currently in session (IST, weekdays only)."""
         now = _ist_now()
-        if now.weekday() >= 5:   # Saturday=5, Sunday=6
+        if now.weekday() >= 5:  # Saturday=5, Sunday=6
             return False
-        open_time  = now.replace(hour=_NSE_OPEN[0],  minute=_NSE_OPEN[1],  second=0, microsecond=0)
-        close_time = now.replace(hour=_NSE_CLOSE[0], minute=_NSE_CLOSE[1], second=0, microsecond=0)
+        open_time = now.replace(
+            hour=_NSE_OPEN[0], minute=_NSE_OPEN[1], second=0, microsecond=0
+        )
+        close_time = now.replace(
+            hour=_NSE_CLOSE[0], minute=_NSE_CLOSE[1], second=0, microsecond=0
+        )
         return open_time <= now <= close_time

@@ -1,19 +1,19 @@
 import logging
 import time
-from typing import Any, cast
+from typing import Any, cast, Callable, Dict, Optional
 import pandas as pd
 import yfinance as yf
-from urllib3.util.retry import Retry
 from data.cache import DataCache
 
 logger = logging.getLogger("stock_dashboard")
+
 
 def sanitize_value(val: Any) -> Any:
     """Ensure val is a JSON-serializable Python float, int, str, or None, filtering NaNs."""
     if val is None:
         return None
     # Check for pandas/numpy NaN
-    if isinstance(val, float) and (pd.isna(val) or val != val):
+    if isinstance(val, float) and pd.isna(val):
         return None
     # Convert numpy types to native Python types
     if hasattr(val, "item"):
@@ -21,9 +21,11 @@ def sanitize_value(val: Any) -> Any:
             val = val.item()
         except Exception:
             pass
-    if isinstance(val, float) and (pd.isna(val) or val != val):
+    if isinstance(val, float) and pd.isna(val):
         return None
+
     return val
+
 
 class StockDataProvider:
     RANGE_MAP = {
@@ -38,10 +40,13 @@ class StockDataProvider:
         self.last_latency = 0.0
         self.cache_ttl = 300  # Default fallback cache TTL
         import requests
+
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            }
+        )
 
     def _get_ticker(self, ticker: str) -> yf.Ticker:
         return yf.Ticker(ticker, session=self.session)
@@ -51,33 +56,42 @@ class StockDataProvider:
             now_ny = pd.Timestamp.now(tz="America/New_York")
             is_weekend = now_ny.weekday() >= 5
             is_market_hours = not is_weekend and (
-                (now_ny.hour == 9 and now_ny.minute >= 30) or
-                (10 <= now_ny.hour < 16)
+                (now_ny.hour == 9 and now_ny.minute >= 30) or (10 <= now_ny.hour < 16)
             )
             return 60 if is_market_hours else 300
         except Exception as e:
             logger.warning(f"Error determining market hours: {e}")
             return 60
 
-    def _get_with_retry(self, func, max_retries=2, initial_delay=0.1, backoff_factor=1.5):
+    def _get_with_retry(
+        self,
+        func: Callable[[], Any],
+        max_retries: int = 2,
+        initial_delay: float = 0.1,
+        backoff_factor: float = 1.5,
+    ) -> Any:
         delay = initial_delay
-        last_exception = None
+        last_exception: Optional[Exception] = None
         for attempt in range(max_retries):
             try:
                 return func()
             except Exception as e:
                 last_exception = e
-                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                logger.warning(
+                    f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s..."
+                )
                 time.sleep(delay)
                 delay *= backoff_factor
-        raise last_exception
+        if last_exception is not None:
+            raise last_exception
+        raise Exception("Retry failed without an exception")
 
     def _fetch_stock_data_direct(self, ticker: str, range_key: str) -> pd.DataFrame:
         """Fallback to fetch chart/candle data directly from Yahoo Finance API via requests."""
         period = self.RANGE_MAP.get(range_key, "1y")
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={period}&interval=1d"
         logger.info(f"Attempting direct HTTP fetch from: {url}")
-        
+
         response = self.session.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
@@ -112,7 +126,7 @@ class StockDataProvider:
             },
             index=pd.to_datetime(timestamps, unit="s"),
         )
-        
+
         # Determine exchange timezone name
         tz_name = meta.get("exchangeTimezoneName") or "America/New_York"
         try:
@@ -128,34 +142,36 @@ class StockDataProvider:
         df.attrs["metadata"] = {
             "regularMarketPrice": sanitize_value(meta.get("regularMarketPrice")),
             "currency": sanitize_value(meta.get("currency") or "USD"),
-            "previousClose": sanitize_value(meta.get("previousClose") or meta.get("chartPreviousClose")),
+            "previousClose": sanitize_value(
+                meta.get("previousClose") or meta.get("chartPreviousClose")
+            ),
             "fiftyTwoWeekHigh": sanitize_value(meta.get("fiftyTwoWeekHigh")),
             "fiftyTwoWeekLow": sanitize_value(meta.get("fiftyTwoWeekLow")),
             "exchangeName": sanitize_value(meta.get("exchangeName")),
         }
-        
+
         # Keep only the rows with valid core price candles
         df = df.dropna(subset=["Open", "High", "Low", "Close"])
-        
+
         if df.empty:
             raise ValueError(f"No valid data points for ticker: {ticker}")
-            
+
         return df
 
     def _fetch_company_info_direct(self, ticker: str) -> dict[str, Any]:
         """Fallback to fetch company quote summary directly from Yahoo Finance API via requests."""
         url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}"
         logger.info(f"Attempting direct HTTP quote fetch from: {url}")
-        
+
         response = self.session.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
-        
+
         if not data.get("quoteResponse", {}).get("result"):
             raise ValueError(f"No quote results found for ticker: {ticker}")
-            
+
         quote = data["quoteResponse"]["result"][0]
-        
+
         return {
             "sector": sanitize_value(quote.get("sector")),
             "industry": sanitize_value(quote.get("industry")),
@@ -169,13 +185,19 @@ class StockDataProvider:
             "regularMarketPrice": sanitize_value(quote.get("regularMarketPrice")),
         }
 
-    def get_stock_data(self, ticker: str, range_key: str = "1y", force_refresh: bool = False) -> pd.DataFrame:
+    def get_stock_data(
+        self, ticker: str, range_key: str = "1y", force_refresh: bool = False
+    ) -> pd.DataFrame:
         start_time = time.time()
         cache_key = f"{ticker}_{range_key}_df"
         ttl = self._get_current_ttl()
-        
+
         cached_tuple = self.cache.get(cache_key)
-        if not force_refresh and cached_tuple is not None and isinstance(cached_tuple, tuple):
+        if (
+            not force_refresh
+            and cached_tuple is not None
+            and isinstance(cached_tuple, tuple)
+        ):
             cached_time, cached_df = cached_tuple
             if time.time() - cached_time < ttl:
                 self.last_latency = (time.time() - start_time) * 1000
@@ -184,11 +206,12 @@ class StockDataProvider:
         period = self.RANGE_MAP.get(range_key, "1y")
         try:
             logger.info(f"Attempting to fetch history for {ticker} using yfinance...")
-            def _fetch_history():
+
+            def _fetch_history() -> pd.DataFrame:
                 t = self._get_ticker(ticker)
-                return t.history(period=period, interval="1d")
-                
-            df = self._get_with_retry(_fetch_history)
+                return cast(pd.DataFrame, t.history(period=period, interval="1d"))
+
+            df = cast(pd.DataFrame, self._get_with_retry(_fetch_history))
 
             if df.empty:
                 raise ValueError(f"No results found for ticker: {ticker}")
@@ -196,7 +219,7 @@ class StockDataProvider:
             # Ensure index is datetime
             if not isinstance(df.index, pd.DatetimeIndex):
                 df.index = pd.to_datetime(df.index)
-            
+
             # Ensure index is timezone-aware
             if df.index.tz is None:
                 tz_name = "UTC"
@@ -207,26 +230,31 @@ class StockDataProvider:
                 except Exception:
                     pass
                 df.index = df.index.tz_localize(tz_name)
-                
+
             df.index.name = "Date"
-            
+
             # Fetch metadata using fast_info first, falling back to info
             meta = {}
             try:
-                def _fetch_meta():
+
+                def _fetch_meta() -> Dict[str, Any]:
                     t = self._get_ticker(ticker)
                     fast_info = t.fast_info
-                    
-                    def get_fast_val(key, attr):
+
+                    def get_fast_val(key: str, attr: str) -> Any:
                         try:
                             val = fast_info[key]
-                            if val is not None and not (isinstance(val, float) and pd.isna(val)):
+                            if val is not None and not (
+                                isinstance(val, float) and pd.isna(val)
+                            ):
                                 return val
                         except Exception:
                             pass
                         try:
                             val = getattr(fast_info, attr)
-                            if val is not None and not (isinstance(val, float) and pd.isna(val)):
+                            if val is not None and not (
+                                isinstance(val, float) and pd.isna(val)
+                            ):
                                 return val
                         except Exception:
                             pass
@@ -238,32 +266,58 @@ class StockDataProvider:
                     curr = get_fast_val("currency", "currency")
                     exch = get_fast_val("exchange", "exchange")
                     lp = get_fast_val("last_price", "last_price")
-                    
+
                     full_info = {}
-                    if pc is None or h52 is None or l52 is None or curr is None or exch is None or lp is None:
+                    if (
+                        pc is None
+                        or h52 is None
+                        or l52 is None
+                        or curr is None
+                        or exch is None
+                        or lp is None
+                    ):
                         try:
                             full_info = t.info
                         except Exception as e:
                             logger.warning(f"Metadata fallback t.info failed: {e}")
-                            
+
                     return {
-                        "regularMarketPrice": sanitize_value(lp if lp is not None else (full_info.get("regularMarketPrice") or full_info.get("currentPrice"))),
-                        "currency": sanitize_value(curr if curr is not None else full_info.get("currency")),
-                        "previousClose": sanitize_value(pc if pc is not None else full_info.get("previousClose")),
-                        "fiftyTwoWeekHigh": sanitize_value(h52 if h52 is not None else full_info.get("fiftyTwoWeekHigh")),
-                        "fiftyTwoWeekLow": sanitize_value(l52 if l52 is not None else full_info.get("fiftyTwoWeekLow")),
-                        "exchangeName": sanitize_value(exch if exch is not None else full_info.get("exchange")),
+                        "regularMarketPrice": sanitize_value(
+                            lp
+                            if lp is not None
+                            else (
+                                full_info.get("regularMarketPrice")
+                                or full_info.get("currentPrice")
+                            )
+                        ),
+                        "currency": sanitize_value(
+                            curr if curr is not None else full_info.get("currency")
+                        ),
+                        "previousClose": sanitize_value(
+                            pc if pc is not None else full_info.get("previousClose")
+                        ),
+                        "fiftyTwoWeekHigh": sanitize_value(
+                            h52
+                            if h52 is not None
+                            else full_info.get("fiftyTwoWeekHigh")
+                        ),
+                        "fiftyTwoWeekLow": sanitize_value(
+                            l52 if l52 is not None else full_info.get("fiftyTwoWeekLow")
+                        ),
+                        "exchangeName": sanitize_value(
+                            exch if exch is not None else full_info.get("exchange")
+                        ),
                     }
-                
+
                 meta = self._get_with_retry(_fetch_meta)
             except Exception as e:
                 logger.warning(f"Error fetching metadata for {ticker}: {e}")
 
             df.attrs["metadata"] = meta
-            
+
             # Avoid dropping the latest candle if some fields are NaN (like Volume, etc.)
             df = df.dropna(subset=["Open", "High", "Low", "Close"])
-            
+
             if df.empty:
                 raise ValueError(f"No valid data points for ticker: {ticker}")
 
@@ -272,21 +326,27 @@ class StockDataProvider:
             return df
 
         except Exception as e:
-            logger.warning(f"yfinance failed to fetch stock data for {ticker}: {e}. Falling back to direct API...")
+            logger.warning(
+                f"yfinance failed to fetch stock data for {ticker}: {e}. Falling back to direct API..."
+            )
             try:
                 df = self._fetch_stock_data_direct(ticker, range_key)
                 self.cache.set(cache_key, (time.time(), df))
                 self.last_latency = (time.time() - start_time) * 1000
                 return df
             except Exception as direct_err:
-                logger.error(f"Both yfinance and direct API failed for {ticker}. Direct API error: {direct_err}")
-                raise ValueError(f"Error fetching data for {ticker}: {str(direct_err)}") from direct_err
+                logger.error(
+                    f"Both yfinance and direct API failed for {ticker}. Direct API error: {direct_err}"
+                )
+                raise ValueError(
+                    f"Error fetching data for {ticker}: {str(direct_err)}"
+                ) from direct_err
 
     def get_company_info(self, ticker: str) -> dict[str, Any]:
         start_time = time.time()
         cache_key = f"{ticker}_info_dict"
         ttl = self._get_current_ttl()
-        
+
         cached_tuple = self.cache.get(cache_key)
         if cached_tuple is not None and isinstance(cached_tuple, tuple):
             cached_time, cached_info = cached_tuple
@@ -296,21 +356,28 @@ class StockDataProvider:
 
         info: dict[str, Any] = {}
         try:
-            logger.info(f"Attempting to fetch company info for {ticker} using yfinance...")
-            def _fetch_ticker_info():
+            logger.info(
+                f"Attempting to fetch company info for {ticker} using yfinance..."
+            )
+
+            def _fetch_ticker_info() -> Dict[str, Any]:
                 t = self._get_ticker(ticker)
                 fast_info = t.fast_info
-                
-                def get_fast_val(key, attr):
+
+                def get_fast_val(key: str, attr: str) -> Any:
                     try:
                         val = fast_info[key]
-                        if val is not None and not (isinstance(val, float) and pd.isna(val)):
+                        if val is not None and not (
+                            isinstance(val, float) and pd.isna(val)
+                        ):
                             return val
                     except Exception:
                         pass
                     try:
                         val = getattr(fast_info, attr)
-                        if val is not None and not (isinstance(val, float) and pd.isna(val)):
+                        if val is not None and not (
+                            isinstance(val, float) and pd.isna(val)
+                        ):
                             return val
                     except Exception:
                         pass
@@ -334,24 +401,58 @@ class StockDataProvider:
                 return {
                     "sector": sanitize_value(full_info.get("sector")),
                     "industry": sanitize_value(full_info.get("industry")),
-                    "marketCap": sanitize_value(mc if mc is not None else (full_info.get("marketCap") or (full_info.get("marketCapitalization", 0) * 1000000 if full_info.get("marketCapitalization") else None))),
-                    "previousClose": sanitize_value(pc if pc is not None else full_info.get("previousClose")),
-                    "longName": sanitize_value(full_info.get("longName") or full_info.get("shortName")),
-                    "fiftyTwoWeekHigh": sanitize_value(h52 if h52 is not None else full_info.get("fiftyTwoWeekHigh")),
-                    "fiftyTwoWeekLow": sanitize_value(l52 if l52 is not None else full_info.get("fiftyTwoWeekLow")),
-                    "currency": sanitize_value(curr if curr is not None else full_info.get("currency")),
-                    "exchange": sanitize_value(exch if exch is not None else full_info.get("exchange")),
-                    "regularMarketPrice": sanitize_value(lp if lp is not None else (full_info.get("regularMarketPrice") or full_info.get("currentPrice"))),
+                    "marketCap": sanitize_value(
+                        mc
+                        if mc is not None
+                        else (
+                            full_info.get("marketCap")
+                            or (
+                                full_info.get("marketCapitalization", 0) * 1000000
+                                if full_info.get("marketCapitalization")
+                                else None
+                            )
+                        )
+                    ),
+                    "previousClose": sanitize_value(
+                        pc if pc is not None else full_info.get("previousClose")
+                    ),
+                    "longName": sanitize_value(
+                        full_info.get("longName") or full_info.get("shortName")
+                    ),
+                    "fiftyTwoWeekHigh": sanitize_value(
+                        h52 if h52 is not None else full_info.get("fiftyTwoWeekHigh")
+                    ),
+                    "fiftyTwoWeekLow": sanitize_value(
+                        l52 if l52 is not None else full_info.get("fiftyTwoWeekLow")
+                    ),
+                    "currency": sanitize_value(
+                        curr if curr is not None else full_info.get("currency")
+                    ),
+                    "exchange": sanitize_value(
+                        exch if exch is not None else full_info.get("exchange")
+                    ),
+                    "regularMarketPrice": sanitize_value(
+                        lp
+                        if lp is not None
+                        else (
+                            full_info.get("regularMarketPrice")
+                            or full_info.get("currentPrice")
+                        )
+                    ),
                 }
 
             info = self._get_with_retry(_fetch_ticker_info)
             info = {k: sanitize_value(v) for k, v in info.items()}
         except Exception as e:
-            logger.warning(f"yfinance failed to fetch company info for {ticker}: {e}. Falling back to direct API...")
+            logger.warning(
+                f"yfinance failed to fetch company info for {ticker}: {e}. Falling back to direct API..."
+            )
             try:
                 info = self._fetch_company_info_direct(ticker)
             except Exception as direct_err:
-                logger.error(f"Both yfinance and direct API failed to fetch company info for {ticker}. Direct API error: {direct_err}")
+                logger.error(
+                    f"Both yfinance and direct API failed to fetch company info for {ticker}. Direct API error: {direct_err}"
+                )
 
         self.cache.set(cache_key, (time.time(), info))
         self.last_latency = (time.time() - start_time) * 1000

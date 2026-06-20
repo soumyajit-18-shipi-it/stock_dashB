@@ -2,19 +2,9 @@ export type DateRange = '1m' | '6m' | '1y' | '5y';
 export type ModelType = 'linear' | 'rf';
 export type TrendDirection = 'increase' | 'decrease';
 
-export interface StockPricePoint {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  ma7?: number;
-  ma21?: number;
-}
 // Re-export shared contract types
-import type { CompanyProfile } from "../shared/stockContract";
-export type { CompanyProfile };
+import type { CompanyProfile, StockPricePoint } from "../shared/stockContract";
+export type { CompanyProfile, StockPricePoint };
 
 export interface PredictionResult {
   predicted_price: number;

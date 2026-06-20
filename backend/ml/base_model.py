@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any, Dict
 import pandas as pd
 import numpy as np
-import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
@@ -22,8 +21,13 @@ class BaseModel(ABC):
 
     def __init__(self, name: str):
         self.name = name
-        self.model = None
-        self.metrics: dict = {"rmse": 0.0, "mae": 0.0, "r2": 0.0, "mean_price": 1.0}
+        self.model: Any = None
+        self.metrics: Dict[str, Any] = {
+            "rmse": 0.0,
+            "mae": 0.0,
+            "r2": 0.0,
+            "mean_price": 1.0,
+        }
 
     # ------------------------------------------------------------------ #
     # Abstract interface                                                   #
@@ -58,7 +62,7 @@ class BaseModel(ABC):
         y_true: np.ndarray,
         y_pred: np.ndarray,
         mean_price: Optional[float] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
         Compute RMSE / MAE / R² and store them.
 
@@ -90,13 +94,13 @@ class BaseModel(ABC):
         relative to the stock price will be penalised so the ensemble
         arbitrator can prefer the model that is actually more reliable.
         """
-        r2 = self.metrics.get("r2", 0.0)
-        rmse = self.metrics.get("rmse", 0.0)
-        mean_price = self.metrics.get("mean_price", 1.0) or 1.0  # guard /0
+        r2 = float(self.metrics.get("r2", 0.0) or 0.0)
+        rmse = float(self.metrics.get("rmse", 0.0) or 0.0)
+        mean_price = float(self.metrics.get("mean_price", 1.0) or 1.0)  # guard /0
 
-        r2_component = (r2 + 1) / 2                          # [0, 1]
-        relative_rmse = rmse / mean_price                     # dimensionless
-        rmse_penalty = min(relative_rmse, 0.5)                # cap at 0.5
+        r2_component = (r2 + 1) / 2  # [0, 1]
+        relative_rmse = rmse / mean_price  # dimensionless
+        rmse_penalty = min(relative_rmse, 0.5)  # cap at 0.5
 
         score = r2_component * (1.0 - rmse_penalty)
-        return round(max(0.0, min(1.0, score)), 6)
+        return float(round(max(0.0, min(1.0, score)), 6))

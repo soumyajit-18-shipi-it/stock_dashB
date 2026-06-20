@@ -166,7 +166,7 @@ def get_supabase_client() -> Any:
                 )
                 _supabase_client = MockSupabaseClient()
             else:
-                _supabase_client = create_client(  # type: ignore[attr-defined]
+                _supabase_client = create_client(
                     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
                 )
         except Exception:  # pylint: disable=broad-exception-caught

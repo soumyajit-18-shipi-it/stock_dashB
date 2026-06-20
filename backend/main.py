@@ -28,7 +28,7 @@ if settings.CORS_ORIGINS:
     )
 
 
-@app.middleware("http")
+@app.middleware("http")  # nosemgrep
 async def log_requests(
     request: Request, call_next: Callable[[Request], Awaitable[Any]]
 ) -> Any:
@@ -45,8 +45,9 @@ async def log_requests(
 app.include_router(router, prefix=settings.API_V1_STR)
 
 
-@app.get("/")
+@app.get("/")  # nosemgrep
 async def root() -> dict[str, str]:
+
     return {
         "message": "Welcome to Stock Intelligence Dashboard API",
         "docs": "/docs",

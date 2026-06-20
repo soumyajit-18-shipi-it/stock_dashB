@@ -33,9 +33,7 @@ technical models cannot predict.  The `low_confidence` flag in
 are not given a falsely precise prediction.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional
-import numpy as np
+from dataclasses import dataclass
 
 
 # Minimum confidence gap for the winner to be "trusted"
@@ -46,7 +44,7 @@ MIN_GAP = 0.05
 class EnsembleResult:
     predicted_price: float
     confidence: float
-    model_used: str          # "linear" | "random_forest" | "ensemble"
+    model_used: str  # "linear" | "random_forest" | "ensemble"
     agreement: bool
     low_confidence: bool
     linear_price: float
@@ -93,7 +91,7 @@ def arbitrate(
             w_rf = rf_confidence / total_conf
 
         predicted = w_lin * linear_price + w_rf * rf_price
-        blended_conf = (linear_confidence * w_lin + rf_confidence * w_rf)
+        blended_conf = linear_confidence * w_lin + rf_confidence * w_rf
         reason = (
             f"Both models agree ({'UP' if linear_up else 'DOWN'}). "
             f"Blended {w_lin:.0%} linear + {w_rf:.0%} RF."
@@ -116,14 +114,10 @@ def arbitrate(
         winner_price = linear_price
         winner_conf = linear_confidence
         winner_name = "linear"
-        loser_direction = "UP" if rf_up else "DOWN"
-        winner_direction = "UP" if linear_up else "DOWN"
     else:
         winner_price = rf_price
         winner_conf = rf_confidence
         winner_name = "random_forest"
-        loser_direction = "UP" if linear_up else "DOWN"
-        winner_direction = "UP" if rf_up else "DOWN"
 
     reason = (
         f"Models disagree (Linear: {'UP' if linear_up else 'DOWN'}, "

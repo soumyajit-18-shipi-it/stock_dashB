@@ -18,7 +18,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/
 export function isAIConfigured(config: AIProviderConfig): boolean {
   if (config.provider === 'ollama') return true; // Ollama has a default local URL
   if (config.provider === 'auto') return true; // Auto can fallback to backend
-  return Boolean(config.apiKey || config.provider === 'auto' || config.provider === 'ollama');
+  return Boolean(config.apiKey);
 }
 
 export function providerLabelKey(provider: AiProvider) {
@@ -59,7 +59,8 @@ async function checkedFetch(input: string, init: RequestInit = {}, timeoutMs = R
       throw new Error(readableProviderError(response.status, text));
     }
     return response;
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     if (error.name === 'AbortError' || error.message === 'AbortError') {
       throw new Error('Request timed out after 60 seconds');
     }
@@ -94,18 +95,26 @@ function normalizeBaseUrl(baseUrl = '') {
   return baseUrl.replace(/\/$/, '');
 }
 
+interface RawModelItem {
+  id?: string;
+  name?: string;
+  model?: string;
+  display_name?: string;
+}
+
 function normalizeModelList(data: unknown): ModelOption[] {
-  const raw = Array.isArray((data as any)?.data)
-    ? (data as any).data
-    : Array.isArray((data as any)?.models)
-      ? (data as any).models
+  const record = data as Record<string, unknown> | null | undefined;
+  const raw = record && Array.isArray(record.data)
+    ? record.data as RawModelItem[]
+    : record && Array.isArray(record.models)
+      ? record.models as RawModelItem[]
       : Array.isArray(data)
-        ? data as unknown[]
+        ? data as RawModelItem[]
         : [];
-  return raw.map((item: any) => {
+  return raw.map((item) => {
     const id = item.id || item.name || item.model || '';
     return { id, name: item.display_name || item.name || item.model || id };
-  }).filter((model) => model.id);
+  }).filter((model: ModelOption) => model.id);
 }
 
 export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'custom' | 'auto';
@@ -138,7 +147,7 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
     try {
       const response = await checkedFetch('http://localhost:11434/api/tags', { signal }, 5000);
       return normalizeModelList(await response.json());
-    } catch (error) {
+    } catch {
       console.warn('Ollama direct fetch failed, trying backend proxy');
     }
   }
@@ -282,7 +291,7 @@ export async function streamChat(config: AIProviderConfig, messages: ChatMessage
       await parseJsonLineStream(response, onToken);
       console.log('Ollama direct stream finished');
       return;
-    } catch (error) {
+    } catch {
       console.warn('Ollama direct chat failed, falling back to backend');
     }
   }

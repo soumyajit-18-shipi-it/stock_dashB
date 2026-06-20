@@ -11,10 +11,7 @@ class WatchlistService:
 
     def get_watchlist(self, user_id: str | None) -> list[dict[str, Any]]:
         response = (
-            self.client.table("watchlists")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
+            self.client.table("watchlists").select("*").eq("user_id", user_id).execute()
         )
         return list(response.data)
 

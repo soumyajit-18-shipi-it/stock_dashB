@@ -4,15 +4,16 @@ import { api } from './api_client';
 describe('API Client', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    localStorage.clear();
     vi.clearAllMocks();
   });
 
   it('should fetch stock data from FastAPI', async () => {
     const mockResponse = { ticker: 'AAPL', profile: {}, history: [], prediction: {}, metrics: {}, confidence: 0.9 };
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
-    });
+    } as Response);
 
     const data = await api.getStock('AAPL', '1y', 'linear');
     expect(data).toEqual(mockResponse);
@@ -21,10 +22,10 @@ describe('API Client', () => {
 
   it('should fetch watchlist from FastAPI', async () => {
     const mockWatchlist = [{ id: '1', ticker: 'AAPL' }];
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockWatchlist),
-    });
+    } as Response);
 
     const data = await api.getWatchlist();
     expect(data).toEqual(mockWatchlist);
@@ -33,10 +34,10 @@ describe('API Client', () => {
 
   it('should add to watchlist via FastAPI', async () => {
     const mockItem = { id: '1', ticker: 'AAPL' };
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockItem),
-    });
+    } as Response);
 
     const data = await api.addToWatchlist('AAPL', 'Apple Inc.');
     expect(data).toEqual(mockItem);
@@ -47,9 +48,9 @@ describe('API Client', () => {
   });
 
   it('should remove from watchlist via FastAPI', async () => {
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: true,
-    });
+    } as Response);
 
     await api.removeFromWatchlist('1');
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist/1'), expect.objectContaining({
@@ -58,10 +59,10 @@ describe('API Client', () => {
   });
 
   it('should throw error when FastAPI response is not ok', async () => {
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: 'Stock not found' }),
-    });
+    } as Response);
 
     await expect(api.getStock('INVALID', '1y', 'linear')).rejects.toThrow('Stock not found');
   });

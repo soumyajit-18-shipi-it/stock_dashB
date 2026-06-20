@@ -16,7 +16,6 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
 
-
 class TestAPIEndpoints:
     def test_health_check(self, client: TestClient) -> None:
         response = client.get("/api/v1/health")

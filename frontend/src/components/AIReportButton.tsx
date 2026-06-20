@@ -160,7 +160,7 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
     let attempts = 0;
     const maxAttempts = 3;
     let success = false;
-    let lastError: any = null;
+    let lastError: Error | null = null;
     
     try {
       while (attempts < maxAttempts && !success) {
@@ -168,7 +168,7 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
         markdown = '';
         setReport('');
         try {
-          console.log(`Report generation attempt ${attempts} of ${maxAttempts}...`);
+          console.log(`Attempt ${attempts} of ${maxAttempts}...`);
           await generateReport(
             aiProviderConfig,
             stockData,
@@ -186,7 +186,7 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
           success = true;
         } catch (error) {
           console.warn(`Attempt ${attempts} failed:`, error);
-          lastError = error;
+          lastError = error instanceof Error ? error : new Error(String(error));
           if (attempts < maxAttempts) {
             await new Promise((resolve) => window.setTimeout(resolve, 1000 * attempts));
           }

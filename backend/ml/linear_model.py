@@ -1,5 +1,5 @@
-import os
 from typing import cast
+import os
 
 import joblib
 import numpy as np
@@ -9,7 +9,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from ml.base_model import BaseModel
 
 
 class LinearRegressionModel(BaseModel):
@@ -25,12 +24,14 @@ class LinearRegressionModel(BaseModel):
       to manage.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("linear")
-        self.model = Pipeline([
-            ("scaler", StandardScaler()),
-            ("lr", LinearRegression()),
-        ])
+        self.model = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("lr", LinearRegression()),
+            ]
+        )
 
     # ------------------------------------------------------------------ #
     # Training                                                             #
@@ -55,7 +56,7 @@ class LinearRegressionModel(BaseModel):
         if not self.is_trained():
             raise ValueError("LinearRegressionModel has not been trained yet.")
         X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        return self.model.predict(X_arr)
+        return cast(np.ndarray, self.model.predict(X_arr))
 
     # ------------------------------------------------------------------ #
     # Persistence                                                          #
