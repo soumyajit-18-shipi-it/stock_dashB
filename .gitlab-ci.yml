@@ -183,17 +183,20 @@ coverage:python:
 
 build:docker:
   stage: build
-  image: docker:latest
+  image: docker:29.0.0
   services:
-    - docker:dind
+    - name: docker:29.0.0-dind
+      alias: docker
   variables:
+    DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - docker info
   script:
     - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
     - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
   only:
     - main
-
 # ---------------------------------------------------------------------------
 # RELEASE STAGE
 # ---------------------------------------------------------------------------
