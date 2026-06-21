@@ -5,7 +5,6 @@ import { useUIStore } from '../store/ui_store';
 
 import type { StockPricePoint } from '../types';
 
-
 interface VolumeChartProps {
   data: StockPricePoint[];
 }

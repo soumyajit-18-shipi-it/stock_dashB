@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { useStore } from "./stock_store";
+import { useStore } from './stock_store';
 
 describe('Stock Store', () => {
   it('should have initial state', () => {

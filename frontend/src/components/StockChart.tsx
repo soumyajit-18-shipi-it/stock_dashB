@@ -4,7 +4,7 @@ import Plot from 'react-plotly.js';
 import { useUIStore } from '../store/ui_store';
 import { currencyForStock } from '../utils/format';
 
-import type { StockPricePoint , StockResponse } from '../types';
+import type { StockPricePoint, StockResponse } from '../types';
 
 interface StockChartProps {
   data: StockPricePoint[];
