@@ -1,3 +1,4 @@
+# Production dependencies
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 pandas>=2.2.0,<3.0.0
@@ -10,5 +11,16 @@ pydantic-settings==2.7.1
 python-dotenv==1.0.1
 supabase==2.11.0
 httpx==0.28.1
-pytest==8.3.4
-pytest-asyncio==0.25.0
+
+# Development dependencies (installed via pip install -r requirements-dev.txt)
+# pytest==8.3.4
+# pytest-asyncio==0.25.0
+# pytest-cov==6.0.0
+# ruff==0.6.9
+# mypy==1.11.2
+# bandit==1.7.9
+# pip-audit==2.8.0
+# vulture==2.10
+# import-linter==2.3.0
+# semgrep==1.120.0
+# gitleaks==8.18.4

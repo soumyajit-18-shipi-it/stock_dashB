@@ -1,45 +1,163 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
+        args: ['--maxkb=1024']
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev: v0.6.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev: v1.11.2
     hooks:
       - id: mypy
-        additional_dependencies: [
-          "types-python-dotenv",
-          "types-requests",
-          "pydantic",
-          "fastapi",
-        ]
+        additional_dependencies:
+          - types-python-dotenv
+          - types-requests
+          - pydantic
+          - fastapi
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.6
+    rev: 1.7.9
     hooks:
       - id: bandit
         args: ["-c", "pyproject.toml"]
         additional_dependencies: ["bandit[toml]"]
 
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.1
+    rev: v8.18.4
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+  - repo: https://github.com/asottille/pyupgrade
+    rev: v3.16.0
     hooks:
       - id: pyupgrade
         args: [--py310-plus]
+
+  # ---------------------------------------------------------------------------
+  # Local hooks — frontend + cross-cutting (require Node + Python to be set up)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: frontend-prettier-check
+        name: Frontend Prettier (check)
+        entry: bash -c 'cd frontend && npx --no-install prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,html,md}"'
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx, js, jsx, json, css, html, markdown]
+        require_serial: true
+
+      - id: frontend-eslint
+        name: Frontend ESLint
+        entry: bash -c 'cd frontend && npx --no-install eslint --max-warnings=0 .'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx]
+        require_serial: true
+
+      - id: frontend-tsc
+        name: Frontend TypeScript (tsc strict)
+        entry: bash -c 'cd frontend && npx --no-install tsc --noEmit -p tsconfig.app.json'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx]
+        require_serial: true
+
+      - id: frontend-knip
+        name: Frontend dead-code / unused exports
+        entry: bash -c 'cd frontend && npx --no-install knip --no-progress'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx]
+        require_serial: true
+        stages: [manual, commit]  # Run on commit for fast feedback, and manual for pre-push
+
+      - id: frontend-depcheck
+        name: Frontend unused-dependency check
+        entry: bash -c 'cd frontend && npx --no-install depcheck --ignores="@types/*,eslint-*,@eslint/*,typescript-eslint,vite,@vitejs/*,postcss,autoprefixer,tailwindcss"'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx, json]
+        require_serial: true
+        stages: [manual]
+
+      - id: frontend-circular-deps
+        name: Frontend circular dependency check
+        entry: bash -c 'cd frontend && npx --no-install madge --circular --extensions ts,tsx src'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx]
+        require_serial: true
+        stages: [manual]
+
+      - id: frontend-license-check
+        name: Frontend license compliance check
+        entry: bash -c 'cd frontend && npx --no-install license-checker --onlyAllow "MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;CC0-1.0;Unlicense;Python-2.0;MPL-2.0" --production'
+        language: system
+        pass_filenames: false
+        types: [json]
+        require_serial: true
+        stages: [manual]
+
+      - id: console-debug-scan
+        name: console.log / debugger / print() scan
+        entry: python scripts/check_console_logs.py
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx, js, jsx, python]
+
+      - id: frontend-npm-audit
+        name: Frontend npm audit (>= high severity)
+        entry: bash -c 'cd frontend && npm audit --audit-level=high'
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [manual]
+
+      - id: backend-pip-audit
+        name: Backend pip-audit (vulnerable dependencies)
+        entry: bash -c 'python -m pip_audit -r backend/requirements.txt || pip-audit -r backend/requirements.txt'
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [manual]
+
+      - id: backend-import-linter
+        name: Backend import-linter (circular deps + layered architecture)
+        entry: bash -c 'import-linter --config .importlinter'
+        language: system
+        pass_filenames: false
+        types: [python]
+        require_serial: true
+        stages: [manual]
+
+      - id: backend-vulture
+        name: Backend vulture (dead code)
+        entry: bash -c 'vulture backend --min-confidence 80 || true'
+        language: system
+        pass_filenames: false
+        types: [python]
+        require_serial: true
+        stages: [manual]
+
+      - id: semgrep-scan
+        name: Semgrep security scan
+        entry: bash -c 'semgrep scan --config .semgrep.yml --error'
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [manual]

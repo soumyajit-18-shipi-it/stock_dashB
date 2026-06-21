@@ -1,0 +1,71 @@
+#!/usr/bin/env sh
+# .husky/pre-commit
+#
+# Layered commit gate (staged-files only):
+#   1. lint-staged -- runs Prettier, ESLint --fix, and ruff on staged files.
+#   2. pre-commit -- runs the existing Python pipeline (ruff, mypy, bandit,
+#      gitleaks, pyupgrade) on the same staged files.
+#   3. console-debug scan -- cross-platform scanner for accidental debug statements.
+#
+# Both engines are restricted to staged files, so a typical commit completes
+# in a few seconds. To bypass for a single commit: `git commit --no-verify`.
+# To bypass Husky entirely: `HUSKY=0 git commit ...`.
+
+. "$(dirname -- "$0")/_lib.sh"
+
+husky_log "pre-commit: staged files only"
+
+# Skip if HUSKY=0 (escape hatch for CI / quick WIP commits)
+if [ "${HUSKY:-1}" = "0" ]; then
+  husky_warn "HUSKY=0, skipping hook"
+  exit 0
+fi
+
+# 1. lint-staged fast path ---------------------------------------------------
+# Run lint-staged on staged files for JS/TS/Python formatting and linting
+if command -v npx >/dev/null 2>&1; then
+  # Check if we're in the frontend directory or have frontend/node_modules
+  if [ -f "frontend/package.json" ] && [ -d "frontend/node_modules" ]; then
+    husky_log "Running lint-staged on staged files..."
+    cd frontend && npx --no-install lint-staged --concurrent false --quiet
+    cd "$HUSKY_REPO_ROOT"
+  elif [ -f "package.json" ] && [ -d "node_modules" ]; then
+    husky_log "Running lint-staged on staged files..."
+    npx --no-install lint-staged --concurrent false --quiet
+  else
+    husky_warn "Node dependencies not installed; skipping lint-staged"
+    husky_warn "Run: cd frontend && npm install"
+  fi
+else
+  husky_warn "npx not found; skipping lint-staged"
+fi
+
+# 2. pre-commit Python pipeline ----------------------------------------------
+# We invoke pre-commit with the explicit staged-files list so it only runs
+# hooks whose `files:` regex matches the staged set.
+STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
+if [ -n "$STAGED" ]; then
+  if command -v pre-commit >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    husky_run pre-commit run --files $STAGED
+  else
+    husky_warn "pre-commit not installed; skipping Python/security hooks"
+    husky_warn "Run: python -m pip install --user pre-commit"
+  fi
+else
+  husky_log "no staged files; skipping pre-commit run"
+fi
+
+# 3. Console/debug statement scanner -----------------------------------------
+# Run the cross-platform console.log/debugger/print() scanner on staged files
+if [ -n "$STAGED" ]; then
+  if command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+    PY_CMD="$(command -v python 2>/dev/null || command -v python3 2>/dev/null)"
+    husky_log "Scanning for debug statements..."
+    husky_run "$PY_CMD" scripts/check_console_logs.py $STAGED
+  else
+    husky_warn "Python not found; skipping console/debug scanner"
+  fi
+fi
+
+husky_ok "pre-commit passed"

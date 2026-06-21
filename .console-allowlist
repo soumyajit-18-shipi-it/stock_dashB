@@ -1,0 +1,20 @@
+# .console-allowlist
+#
+# JSONL entries that suppress the console-debug scanner. Each line:
+#   {"glob": "<python regex matching a file path>", "regex": "<regex matching a line>"}
+#
+# Both regexes are unanchored (search, not match).
+#
+# Glob is matched against the repo-relative file path (forward slashes).
+# Lines matching BOTH the glob and the line-regex are skipped — they won't
+# appear in the scanner output.
+#
+# Examples below — feel free to extend.
+
+{"glob": "frontend/src/test/.+", "regex": "^\\s*console\\.log"}
+{"glob": "frontend/.+\\.test\\.(ts|tsx|js|jsx)", "regex": "^\\s*console\\.(log|debug)"}
+{"glob": "frontend/.+\\.spec\\.(ts|tsx|js|jsx)", "regex": "^\\s*console\\.(log|debug)"}
+{"glob": "frontend/src/utils/logger\\.ts", "regex": "console\\.(info|warn|error)"}
+{"glob": "backend/main\\.py", "regex": "logger\\.(info|warning|error|debug)"}
+{"glob": "backend/.+/core/logging\\.py", "regex": "console\\.|print\\("}
+{"glob": "scripts/.+\\.py", "regex": "^\\s*print\\("}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json.schemastore.org/knip-schema.json",
+  "entry": [
+    "src/main.tsx",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.{test,spec}.{ts,tsx}",
+    "!src/test/**"
+  ],
+  "ignore": [
+    "src/vite-env.d.ts",
+    "src/**/*.d.ts",
+    "src/test/**",
+    "src/**/*.{test,spec}.{ts,tsx}"
+  ],
+  "ignoreDependencies": [
+    "@types/*",
+    "eslint-*",
+    "@eslint/*",
+    "typescript-eslint",
+    "vite",
+    "@vitejs/*",
+    "postcss",
+    "autoprefixer",
+    "tailwindcss",
+    "husky",
+    "lint-staged",
+    "prettier",
+    "knip",
+    "depcheck",
+    "vitest",
+    "@playwright/test",
+    "playwright",
+    "@testing-library/*",
+    "jsdom",
+    "globals"
+  ],
+  "rules": {
+    "dependencies": "error",
+    "devDependencies": "error",
+    "exports": "error",
+    "files": "error",
+    "nsExports": "error",
+    "nsTypes": "error",
+    "types": "error",
+    "unlisted": "error",
+    "binaries": "off",
+    "classMembers": "off",
+    "enumMembers": "off",
+    "unresolved": "off"
+  }
+}
