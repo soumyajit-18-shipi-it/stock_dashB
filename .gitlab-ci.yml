@@ -31,7 +31,7 @@ format:python:
 
 format:frontend:
   stage: format
-  image: node:18-alpine
+  image: node:22-alpine
   script:
     - cd frontend
     - npm ci
@@ -58,7 +58,7 @@ lint:pylint:
 
 lint:frontend:
   stage: lint
-  image: node:18-alpine
+  image: node:22-alpine
   script:
     - cd frontend
     - npm ci
@@ -78,7 +78,7 @@ type_check:python:
 
 type_check:frontend:
   stage: type_check
-  image: node:18-alpine
+  image: node:22-alpine
   script:
     - cd frontend
     - npm ci
@@ -115,12 +115,12 @@ test:python:
   image: python:3.11-slim
   script:
     - pip install -r backend/requirements.txt
-    - pip install pytest pytest-cov
+    - pip install pytest pytest-cov pytest-asyncio
     - pytest backend/tests
 
 test:frontend:
   stage: test
-  image: node:18-alpine
+  image: node:22-alpine
   script:
     - cd frontend
     - npm ci
@@ -135,7 +135,7 @@ coverage:python:
   image: python:3.11-slim
   script:
     - pip install -r backend/requirements.txt
-    - pip install pytest pytest-cov
+    - pip install pytest pytest-cov pytest-asyncio
     - pytest backend/tests --cov=backend --cov-report=xml --cov-report=term
   artifacts:
     reports:
