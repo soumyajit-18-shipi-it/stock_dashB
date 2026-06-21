@@ -18,7 +18,7 @@ def test_ai_service_helpers() -> None:
 
     # Test _get_fallback_models
     assert len(svc._get_fallback_models("groq")) == 3
-    assert svc._get_fallback_models("openai") == []
+    assert not svc._get_fallback_models("openai")
 
     # Test _get_headers
     headers_anthropic = svc._get_headers("anthropic", "test-key")
