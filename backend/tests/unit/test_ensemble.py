@@ -1,4 +1,4 @@
-from ml.ensemble import arbitrate, MIN_GAP
+from ml.ensemble import arbitrate
 
 
 def test_arbitrate_agreement_up() -> None:

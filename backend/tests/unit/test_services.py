@@ -3,7 +3,7 @@ import pytest
 from services.history_service import HistoryService
 from services.watchlist_service import WatchlistService
 from services.prediction_service import PredictionService
-from schemas import SearchHistoryItem, PredictionRecord
+from schemas import PredictionRecord
 
 
 @pytest.fixture
