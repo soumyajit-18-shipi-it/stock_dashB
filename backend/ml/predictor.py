@@ -75,7 +75,6 @@ def _model_is_stale(path: str) -> bool:
     if mtime < session_close <= now:
         return True
 
-
     return False
 
 

@@ -22,6 +22,7 @@ Exit codes:
   1  — at least one ERROR match
   2  — internal error (e.g. invalid allow-list)
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,6 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
 
 # ---------------------------------------------------------------------------
 # Rules
@@ -79,8 +79,18 @@ def is_lenient(path: str) -> bool:
         return True
     # Anything under frontend/test or frontend/src/test is lenient.
     name = Path(p).name
-    if name.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx",
-                      ".test.js", ".test.jsx", ".spec.js", ".spec.jsx")):
+    if name.endswith(
+        (
+            ".test.ts",
+            ".test.tsx",
+            ".spec.ts",
+            ".spec.tsx",
+            ".test.js",
+            ".test.jsx",
+            ".spec.js",
+            ".spec.jsx",
+        )
+    ):
         return True
     if "/locales/" in p:
         return True
@@ -112,18 +122,26 @@ def load_allowlist(path: Path) -> list[tuple[re.Pattern[str], re.Pattern[str]]]:
             continue
         try:
             entry = json.loads(s)
-            out.append((
-                re.compile(entry["glob"]),
-                re.compile(entry["regex"]),
-            ))
+            out.append(
+                (
+                    re.compile(entry["glob"]),
+                    re.compile(entry["regex"]),
+                )
+            )
         except Exception as exc:  # noqa: BLE001
-            print(f"check_console_logs: bad allow-list line {i}: {exc}", file=sys.stderr)
+            print(
+                f"check_console_logs: bad allow-list line {i}: {exc}", file=sys.stderr
+            )
             return []
     return out
 
 
-def is_allowed(path: str, lineno: int, line_text: str,
-               allow: list[tuple[re.Pattern[str], re.Pattern[str]]]) -> bool:
+def is_allowed(
+    path: str,
+    lineno: int,
+    line_text: str,
+    allow: list[tuple[re.Pattern[str], re.Pattern[str]]],
+) -> bool:
     for path_re, line_re in allow:
         if path_re.search(path) and line_re.search(line_text):
             return True
@@ -135,8 +153,9 @@ def is_allowed(path: str, lineno: int, line_text: str,
 # ---------------------------------------------------------------------------
 
 
-def scan_file(path: str, allow: list[tuple[re.Pattern[str], re.Pattern[str]]],
-              root: Path) -> tuple[list[str], list[str]]:
+def scan_file(
+    path: str, allow: list[tuple[re.Pattern[str], re.Pattern[str]]], root: Path
+) -> tuple[list[str], list[str]]:
     """Return (errors, warnings) — each a list of formatted lines."""
     rules = rule_set_for(path)
     if rules is None:
@@ -178,7 +197,9 @@ def discover_staged_files() -> list[str]:
 
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         return []
