@@ -1,5 +1,6 @@
 import { Brain, TreeDeciduous } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 import { useStore } from '../store/stock_store';
 
 export function ModelToggle() {

@@ -1,8 +1,9 @@
 import { BarChart3, Moon, Settings, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 import { languages, type AppLanguage } from '../i18n';
-import { useUIStore } from '../store/ui_store';
 import { WatchlistDropdown } from './WatchlistDropdown';
+import { useUIStore } from '../store/ui_store';
 
 interface NavbarProps {
   darkMode: boolean;
@@ -37,7 +38,9 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
             >
               {t('browseMoreTickers')}
             </a>
-            <label htmlFor="language-select" className="sr-only">{t('language')}</label>
+            <label htmlFor="language-select" className="sr-only">
+              {t('language')}
+            </label>
             <select
               id="language-select"
               value={language}
@@ -45,7 +48,9 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
               className="max-w-28 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white"
             >
               {languages.map((item) => (
-                <option key={item.code} value={item.code}>{item.label}</option>
+                <option key={item.code} value={item.code}>
+                  {item.label}
+                </option>
               ))}
             </select>
             <button

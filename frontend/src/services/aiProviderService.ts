@@ -1,6 +1,7 @@
+import { currencyForStock, formatCurrency } from '../utils/format';
+
 import type { AIProviderConfig } from '../store/ui_store';
 import type { StockResponse } from '../types';
-import { currencyForStock, formatCurrency } from '../utils/format';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -35,7 +36,7 @@ function withTimeout(signal?: AbortSignal | null, timeoutMs = REQUEST_TIMEOUT_MS
   const timeout = setTimeout(() => {
     controller.abort(new Error('AbortError'));
   }, timeoutMs);
-  
+
   if (signal) {
     signal.addEventListener('abort', () => {
       clearTimeout(timeout);
@@ -87,7 +88,7 @@ function readableProviderError(status: number, body: string) {
   if (status === 401 || status === 403) return 'Invalid API key or unauthorized access.';
   if (status === 429) return 'Rate limit exceeded. Try again later.';
   if (status >= 500) return `Backend error (${status}). The AI service might be down.`;
-  
+
   return parsedMsg || `Request failed with status ${status}`;
 }
 
@@ -104,17 +105,20 @@ interface RawModelItem {
 
 function normalizeModelList(data: unknown): ModelOption[] {
   const record = data as Record<string, unknown> | null | undefined;
-  const raw = record && Array.isArray(record.data)
-    ? record.data as RawModelItem[]
-    : record && Array.isArray(record.models)
-      ? record.models as RawModelItem[]
-      : Array.isArray(data)
-        ? data as RawModelItem[]
-        : [];
-  return raw.map((item) => {
-    const id = item.id || item.name || item.model || '';
-    return { id, name: item.display_name || item.name || item.model || id };
-  }).filter((model: ModelOption) => model.id);
+  const raw =
+    record && Array.isArray(record.data)
+      ? (record.data as RawModelItem[])
+      : record && Array.isArray(record.models)
+        ? (record.models as RawModelItem[])
+        : Array.isArray(data)
+          ? (data as RawModelItem[])
+          : [];
+  return raw
+    .map((item) => {
+      const id = item.id || item.name || item.model || '';
+      return { id, name: item.display_name || item.name || item.model || id };
+    })
+    .filter((model: ModelOption) => model.id);
 }
 
 export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'custom' | 'auto';
@@ -126,21 +130,29 @@ export interface ProviderMeta {
 
 export function detectProviderFromKey(apiKey: string): ProviderMeta {
   if (!apiKey) return { provider: 'auto' };
-  
+
   if (apiKey.startsWith('sk-ant-')) return { provider: 'anthropic' };
   if (apiKey.startsWith('AIza')) return { provider: 'gemini' };
-  if (apiKey.startsWith('gsk_')) return { provider: 'openai', baseUrl: 'https://api.groq.com/openai/v1' };
-  if (apiKey.startsWith('sk-or-v1-')) return { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1' };
-  
+  if (apiKey.startsWith('gsk_'))
+    return { provider: 'openai', baseUrl: 'https://api.groq.com/openai/v1' };
+  if (apiKey.startsWith('sk-or-v1-'))
+    return { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1' };
+
   return { provider: 'openai', baseUrl: 'https://api.openai.com/v1' };
 }
 
-export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal): Promise<ModelOption[]> {
-  const meta = config.provider === 'auto' ? detectProviderFromKey(config.apiKey || '') : { provider: config.provider, baseUrl: config.baseUrl };
+export async function fetchModels(
+  config: AIProviderConfig,
+  signal?: AbortSignal
+): Promise<ModelOption[]> {
+  const meta =
+    config.provider === 'auto'
+      ? detectProviderFromKey(config.apiKey || '')
+      : { provider: config.provider, baseUrl: config.baseUrl };
   const provider = meta.provider;
   const baseUrl = normalizeBaseUrl(meta.baseUrl || config.baseUrl || '');
 
-  console.log(`Fetching models for provider: ${provider}, baseUrl: ${baseUrl}`);
+  console.info(`Fetching models for provider: ${provider}, baseUrl: ${baseUrl}`);
 
   // For Local Ollama, try direct first
   if (provider === 'ollama' && !baseUrl) {
@@ -160,7 +172,7 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
     if (baseUrl) params.append('base_url', baseUrl);
 
     const url = `${API_BASE_URL}/ai/models?${params.toString()}`;
-    console.log(`Backend model fetch: ${url}`);
+    console.info(`Backend model fetch: ${url}`);
     const response = await checkedFetch(url, { signal });
     return await response.json();
   } catch (error) {
@@ -173,17 +185,34 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
   }
 }
 
-
 export function selectBestModel(_provider: AiProvider, models: ModelOption[]) {
-  const priorities = ['gpt-4o', 'gpt-4', 'claude-3-5-sonnet', 'claude-3', 'gemini-1.5-pro', 'gemini-1.5-flash', 'llama-3.3-70b', 'llama-3.1-70b', 'llama-3', 'llama3', 'mixtral', 'gemma', 'qwen', 'mistral'];
+  const priorities = [
+    'gpt-4o',
+    'gpt-4',
+    'claude-3-5-sonnet',
+    'claude-3',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash',
+    'llama-3.3-70b',
+    'llama-3.1-70b',
+    'llama-3',
+    'llama3',
+    'mixtral',
+    'gemma',
+    'qwen',
+    'mistral',
+  ];
   for (const p of priorities) {
-    const found = models.find(m => m.id.toLowerCase().includes(p));
+    const found = models.find((m) => m.id.toLowerCase().includes(p));
     if (found) return found;
   }
   return models[0];
 }
 
-export async function detectAndApplyModel(config: AIProviderConfig, signal?: AbortSignal): Promise<AIProviderConfig> {
+export async function detectAndApplyModel(
+  config: AIProviderConfig,
+  signal?: AbortSignal
+): Promise<AIProviderConfig> {
   const models = await fetchModels(config, signal);
   const selected = selectBestModel(config.provider, models);
   return { ...config, selectedModel: selected?.id || config.selectedModel || '' };
@@ -246,7 +275,9 @@ async function parseOpenAIStream(response: Response, onToken: (token: string) =>
       const json = JSON.parse(data);
       const token = json.choices?.[0]?.delta?.content || json.delta?.text || '';
       if (token) onToken(token);
-    } catch { /* Ignore */ }
+    } catch {
+      /* Ignore */
+    }
   });
 }
 
@@ -267,29 +298,43 @@ async function parseJsonLineStream(response: Response, onToken: (token: string) 
         const json = JSON.parse(line);
         const token = json.message?.content || json.response || '';
         if (token) onToken(token);
-      } catch { /* Ignore */ }
+      } catch {
+        /* Ignore */
+      }
     }
   }
 }
 
-export async function streamChat(config: AIProviderConfig, messages: ChatMessage[], signal: AbortSignal, onToken: (token: string) => void) {
-  const meta = config.provider === 'auto' ? detectProviderFromKey(config.apiKey || '') : { provider: config.provider, baseUrl: config.baseUrl };
+export async function streamChat(
+  config: AIProviderConfig,
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  onToken: (token: string) => void
+) {
+  const meta =
+    config.provider === 'auto'
+      ? detectProviderFromKey(config.apiKey || '')
+      : { provider: config.provider, baseUrl: config.baseUrl };
   const provider = meta.provider;
   const baseUrl = normalizeBaseUrl(meta.baseUrl || config.baseUrl || '');
 
-  console.log(`Starting streamChat: provider=${provider}, model=${config.selectedModel}`);
+  console.info(`Starting streamChat: provider=${provider}, model=${config.selectedModel}`);
 
   // Local Ollama: Try direct first
   if (provider === 'ollama' && !config.baseUrl) {
     try {
-      const response = await checkedFetch('http://localhost:11434/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.selectedModel || 'llama3', messages, stream: true }),
-        signal,
-      }, REQUEST_TIMEOUT_MS);
+      const response = await checkedFetch(
+        'http://localhost:11434/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: config.selectedModel || 'llama3', messages, stream: true }),
+          signal,
+        },
+        REQUEST_TIMEOUT_MS
+      );
       await parseJsonLineStream(response, onToken);
-      console.log('Ollama direct stream finished');
+      console.info('Ollama direct stream finished');
       return;
     } catch {
       console.warn('Ollama direct chat failed, falling back to backend');
@@ -299,35 +344,51 @@ export async function streamChat(config: AIProviderConfig, messages: ChatMessage
   // Use backend proxy
   try {
     const url = `${API_BASE_URL}/ai/chat`;
-    console.log(`Backend chat stream: ${url}`);
-    const response = await checkedFetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        provider,
-        model: config.selectedModel,
-        api_key: config.apiKey,
-        base_url: baseUrl,
-        stream: true
-      }),
-      signal,
-    }, REQUEST_TIMEOUT_MS);
-    
+    console.info(`Backend chat stream: ${url}`);
+    const response = await checkedFetch(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
+          provider,
+          model: config.selectedModel,
+          api_key: config.apiKey,
+          base_url: baseUrl,
+          stream: true,
+        }),
+        signal,
+      },
+      REQUEST_TIMEOUT_MS
+    );
+
     await parseOpenAIStream(response, onToken);
-    console.log('Backend chat stream finished');
+    console.info('Backend chat stream finished');
   } catch (error) {
     console.error('Backend proxy chat failed:', error);
     throw error;
   }
 }
 
-
-export function buildChatMessages(stock: StockResponse, language: string, userMessages: ChatMessage[]) {
-  return [{ role: 'system' as const, content: buildSystemPrompt(stock, language) }, ...userMessages];
+export function buildChatMessages(
+  stock: StockResponse,
+  language: string,
+  userMessages: ChatMessage[]
+) {
+  return [
+    { role: 'system' as const, content: buildSystemPrompt(stock, language) },
+    ...userMessages,
+  ];
 }
 
-export async function generateReport(config: AIProviderConfig, stock: StockResponse, language: string, signal: AbortSignal, onToken: (token: string) => void) {
+export async function generateReport(
+  config: AIProviderConfig,
+  stock: StockResponse,
+  language: string,
+  signal: AbortSignal,
+  onToken: (token: string) => void
+) {
   const reportPrompt = [
     'Generate a PROFESSIONAL EQUITY RESEARCH REPORT. Do not use placeholders like "Not Available".',
     'Use the provided data to generate meaningful insights even if some metrics are missing.',
@@ -371,15 +432,13 @@ export async function generateReport(config: AIProviderConfig, stock: StockRespo
     'Constraint: Ensure every section is populated with at least 150 words of high-quality analysis.',
   ].join('\n');
 
-  await streamChat(config, [
-    { role: 'system', content: buildSystemPrompt(stock, language) },
-    { role: 'user', content: reportPrompt },
-  ], signal, onToken);
+  await streamChat(
+    config,
+    [
+      { role: 'system', content: buildSystemPrompt(stock, language) },
+      { role: 'user', content: reportPrompt },
+    ],
+    signal,
+    onToken
+  );
 }
-
-
-
-
-
-
-

@@ -24,7 +24,7 @@ export interface CompanyProfile {
 
 export interface StockPrediction {
   predicted_price: number;
-  trend: "increase" | "decrease";
+  trend: 'increase' | 'decrease';
   confidence: number;
   model_used: string;
 }

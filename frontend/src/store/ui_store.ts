@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import { isAppLanguage, readInitialLanguage, type AppLanguage } from '../i18n';
 import { applyTheme, readInitialTheme, type ThemeName } from '../theme';
 
@@ -71,7 +72,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     const normalized = {
       provider: aiProviderConfig.provider,
       apiKey: aiProviderConfig.apiKey || '',
-      baseUrl: aiProviderConfig.baseUrl || (aiProviderConfig.provider === 'ollama' ? defaultConfig.baseUrl : ''),
+      baseUrl:
+        aiProviderConfig.baseUrl ||
+        (aiProviderConfig.provider === 'ollama' ? defaultConfig.baseUrl : ''),
       selectedModel: aiProviderConfig.selectedModel || '',
     };
     localStorage.setItem('ai_provider_config', JSON.stringify(normalized));

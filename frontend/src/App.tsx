@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
+
 import { AISettingsModal, Navbar } from './components';
-import { Dashboard } from './pages';
 import i18n from './i18n';
+import { Dashboard } from './pages';
 import { useUIStore } from './store/ui_store';
 
 const queryClient = new QueryClient({

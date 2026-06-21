@@ -1,3 +1,6 @@
+import { Plus, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
 import {
   SearchBar,
   StockChart,
@@ -14,8 +17,6 @@ import {
 } from '../components';
 import { useStock, useWatchlist } from '../hooks/useStock';
 import { useStore } from '../store/stock_store';
-import { Plus, Check } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 export function Dashboard() {
   const { ticker, model } = useStore();
@@ -53,7 +54,10 @@ export function Dashboard() {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-slate-400">
-                  {t('modelLabel')}: <span className="text-emerald-400">{model === 'rf' ? t('randomForest') : t('linear')}</span>
+                  {t('modelLabel')}:{' '}
+                  <span className="text-emerald-400">
+                    {model === 'rf' ? t('randomForest') : t('linear')}
+                  </span>
                 </span>
                 {isInWatchlist ? (
                   <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/20 px-4 py-2 rounded-lg">
@@ -75,13 +79,21 @@ export function Dashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <StockChart data={stockData.history} stockData={stockData} title={t('priceHistory', { ticker: stockData.profile.ticker })} />
+                <StockChart
+                  data={stockData.history}
+                  stockData={stockData}
+                  title={t('priceHistory', { ticker: stockData.profile.ticker })}
+                />
                 <VolumeChart data={stockData.history} />
               </div>
 
               <div className="space-y-6">
                 <CompanyProfileCard profile={stockData.profile} />
-                <PredictionCard prediction={stockData.prediction} metrics={stockData.metrics} stockData={stockData} />
+                <PredictionCard
+                  prediction={stockData.prediction}
+                  metrics={stockData.metrics}
+                  stockData={stockData}
+                />
               </div>
             </div>
             <AskAIDrawer stockData={stockData} />

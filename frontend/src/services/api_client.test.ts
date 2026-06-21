@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { api } from './api_client';
 
 describe('API Client', () => {
@@ -9,7 +10,14 @@ describe('API Client', () => {
   });
 
   it('should fetch stock data from FastAPI', async () => {
-    const mockResponse = { ticker: 'AAPL', profile: {}, history: [], prediction: {}, metrics: {}, confidence: 0.9 };
+    const mockResponse = {
+      ticker: 'AAPL',
+      profile: {},
+      history: [],
+      prediction: {},
+      metrics: {},
+      confidence: 0.9,
+    };
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
@@ -17,7 +25,10 @@ describe('API Client', () => {
 
     const data = await api.getStock('AAPL', '1y', 'linear');
     expect(data).toEqual(mockResponse);
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/stock/AAPL?range=1y&model=linear'), expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stock/AAPL?range=1y&model=linear'),
+      expect.any(Object)
+    );
   });
 
   it('should fetch watchlist from FastAPI', async () => {
@@ -41,10 +52,13 @@ describe('API Client', () => {
 
     const data = await api.addToWatchlist('AAPL', 'Apple Inc.');
     expect(data).toEqual(mockItem);
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist'), expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ ticker: 'AAPL', name: 'Apple Inc.' }),
-    }));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/watchlist'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ ticker: 'AAPL', name: 'Apple Inc.' }),
+      })
+    );
   });
 
   it('should remove from watchlist via FastAPI', async () => {
@@ -53,9 +67,12 @@ describe('API Client', () => {
     } as Response);
 
     await api.removeFromWatchlist('1');
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist/1'), expect.objectContaining({
-      method: 'DELETE',
-    }));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/watchlist/1'),
+      expect.objectContaining({
+        method: 'DELETE',
+      })
+    );
   });
 
   it('should throw error when FastAPI response is not ok', async () => {

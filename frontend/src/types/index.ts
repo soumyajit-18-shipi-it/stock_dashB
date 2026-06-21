@@ -3,7 +3,7 @@ export type ModelType = 'linear' | 'rf';
 export type TrendDirection = 'increase' | 'decrease';
 
 // Re-export shared contract types
-import type { CompanyProfile, StockPricePoint } from "../shared/stockContract";
+import type { CompanyProfile, StockPricePoint } from '../shared/stockContract';
 export type { CompanyProfile, StockPricePoint };
 
 export interface PredictionResult {

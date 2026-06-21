@@ -1,4 +1,11 @@
-import type { DateRange, ModelType, StockResponse, WatchlistItem, SearchHistoryItem, PredictionRecord } from '../types';
+import type {
+  DateRange,
+  ModelType,
+  StockResponse,
+  WatchlistItem,
+  SearchHistoryItem,
+  PredictionRecord,
+} from '../types';
 
 const FASTAPI_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 const WATCHLIST_KEY = 'stock_watchlist';
@@ -11,7 +18,7 @@ function normalizeTicker(ticker: string) {
 function readLocalArray<T>(key: string): T[] {
   try {
     const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) as T[] : [];
+    return value ? (JSON.parse(value) as T[]) : [];
   } catch {
     return [];
   }
@@ -71,7 +78,7 @@ export const api = {
       throw new Error(errorMessage);
     }
 
-    return await response.json() as StockResponse;
+    return (await response.json()) as StockResponse;
   },
 
   async getWatchlist(): Promise<WatchlistItem[]> {
@@ -80,7 +87,7 @@ export const api = {
       if (!response.ok) {
         throw new Error('Failed to fetch watchlist');
       }
-      const items = await response.json() as WatchlistItem[];
+      const items = (await response.json()) as WatchlistItem[];
       return writeLocalWatchlist(items);
     } catch {
       return readLocalWatchlist();
@@ -92,7 +99,12 @@ export const api = {
     const existing = readLocalWatchlist().find((item) => item.ticker === symbol);
     if (existing) return existing;
 
-    const localItem: WatchlistItem = { id: symbol, ticker: symbol, name, created_at: new Date().toISOString() };
+    const localItem: WatchlistItem = {
+      id: symbol,
+      ticker: symbol,
+      name,
+      created_at: new Date().toISOString(),
+    };
     writeLocalWatchlist([...readLocalWatchlist(), localItem]);
 
     try {
@@ -107,8 +119,11 @@ export const api = {
       if (!response.ok) {
         throw new Error('Failed to add to watchlist');
       }
-      const item = await response.json() as WatchlistItem;
-      writeLocalWatchlist([...readLocalWatchlist().filter((entry) => entry.ticker !== symbol), { ...item, ticker: normalizeTicker(item.ticker || symbol) }]);
+      const item = (await response.json()) as WatchlistItem;
+      writeLocalWatchlist([
+        ...readLocalWatchlist().filter((entry) => entry.ticker !== symbol),
+        { ...item, ticker: normalizeTicker(item.ticker || symbol) },
+      ]);
       return item;
     } catch {
       return localItem;
@@ -118,7 +133,9 @@ export const api = {
   async removeFromWatchlist(id: string): Promise<void> {
     const current = readLocalWatchlist();
     const target = current.find((item) => item.id === id || item.ticker === normalizeTicker(id));
-    writeLocalWatchlist(current.filter((item) => item.id !== id && item.ticker !== normalizeTicker(id)));
+    writeLocalWatchlist(
+      current.filter((item) => item.id !== id && item.ticker !== normalizeTicker(id))
+    );
 
     try {
       const response = await fetch(`${FASTAPI_URL}/watchlist/${target?.id || id}`, {
@@ -139,7 +156,7 @@ export const api = {
       if (!response.ok) {
         throw new Error('Failed to fetch search history');
       }
-      const items = await response.json() as SearchHistoryItem[];
+      const items = (await response.json()) as SearchHistoryItem[];
       const local = readLocalHistory();
       return writeLocalHistory([...local, ...items]);
     } catch {
@@ -148,7 +165,11 @@ export const api = {
   },
 
   async addSearchHistory(ticker: string): Promise<SearchHistoryItem> {
-    const item = { id: normalizeTicker(ticker), ticker: normalizeTicker(ticker), searched_at: new Date().toISOString() } as SearchHistoryItem;
+    const item = {
+      id: normalizeTicker(ticker),
+      ticker: normalizeTicker(ticker),
+      searched_at: new Date().toISOString(),
+    } as SearchHistoryItem;
     writeLocalHistory([item, ...readLocalHistory()]);
     return item;
   },
@@ -169,10 +190,10 @@ export const api = {
   },
 
   async getPredictions(ticker?: string): Promise<PredictionRecord[]> {
-    const url = ticker 
-      ? `${FASTAPI_URL}/predictions?ticker=${ticker}` 
+    const url = ticker
+      ? `${FASTAPI_URL}/predictions?ticker=${ticker}`
       : `${FASTAPI_URL}/predictions`;
-      
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch predictions');

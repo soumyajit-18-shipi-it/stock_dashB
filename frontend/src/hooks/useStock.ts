@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { api } from '../services/api_client';
 import { useStore } from '../store/stock_store';
 
@@ -48,14 +49,14 @@ export function useWatchlist() {
     if (!symbol) throw new Error('Ticker is required');
     const optimistic = { id: symbol, ticker: symbol, name };
     queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
+      const items = Array.isArray(current) ? (current as typeof watchlist) : [];
       return items.some((entry) => entry.ticker === symbol) ? items : [...items, optimistic];
     });
     addToWatchlist(optimistic);
     const item = await api.addToWatchlist(symbol, name);
     queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
-      return items.map((entry) => entry.ticker === symbol ? item : entry);
+      const items = Array.isArray(current) ? (current as typeof watchlist) : [];
+      return items.map((entry) => (entry.ticker === symbol ? item : entry));
     });
     return item;
   };
@@ -63,7 +64,7 @@ export function useWatchlist() {
   const remove = async (id: string) => {
     removeFromWatchlist(id);
     queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
+      const items = Array.isArray(current) ? (current as typeof watchlist) : [];
       return items.filter((entry) => entry.id !== id && entry.ticker !== id);
     });
     await api.removeFromWatchlist(id);
@@ -87,7 +88,7 @@ export function useSearchHistory() {
     try {
       const item = await api.addSearchHistory(ticker);
       queryClient.setQueryData(['searchHistory'], (current: unknown) => {
-        const items = Array.isArray(current) ? current as typeof history : [];
+        const items = Array.isArray(current) ? (current as typeof history) : [];
         return [item, ...items.filter((entry) => entry.ticker !== item.ticker)].slice(0, 20);
       });
       void refetch();
