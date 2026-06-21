@@ -73,7 +73,7 @@ type_check:python:
   image: python:3.11-slim
   script:
     - pip install -r backend/requirements.txt
-    - pip install mypy types-python-dotenv types-requests
+    - pip install mypy types-requests
     - mypy backend
 
 

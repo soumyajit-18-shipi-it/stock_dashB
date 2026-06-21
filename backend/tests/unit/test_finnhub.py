@@ -23,7 +23,7 @@ async def test_finnhub_service_success() -> None:
 @pytest.mark.asyncio
 async def test_finnhub_service_no_key() -> None:
     svc = FinnhubService()
-    svc.api_key = None
+    svc.api_key = ""
 
     profile = await svc.get_company_profile("AAPL")
     assert profile is None

@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 import pytest
 from services.history_service import HistoryService
@@ -7,7 +8,7 @@ from schemas import PredictionRecord
 
 
 @pytest.fixture
-def mock_supabase_client():
+def mock_supabase_client() -> Generator[MagicMock, None, None]:
     with (
         patch("services.history_service.get_supabase_client") as mock_get_history,
         patch("services.watchlist_service.get_supabase_client") as mock_get_watchlist,
@@ -20,7 +21,7 @@ def mock_supabase_client():
         yield client
 
 
-def test_history_service(mock_supabase_client) -> None:
+def test_history_service(mock_supabase_client: MagicMock) -> None:
     # Mock return values for HistoryService
     mock_execute = MagicMock()
     mock_execute.data = [
@@ -32,11 +33,15 @@ def test_history_service(mock_supabase_client) -> None:
         }
     ]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_execute
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = (
+        mock_execute
+    )
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
-    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = mock_execute
+    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = (
+        mock_execute
+    )
 
     svc = HistoryService()
 
@@ -54,15 +59,19 @@ def test_history_service(mock_supabase_client) -> None:
     assert cleared is True
 
 
-def test_watchlist_service(mock_supabase_client) -> None:
+def test_watchlist_service(mock_supabase_client: MagicMock) -> None:
     mock_execute = MagicMock()
     mock_execute.data = [{"user_id": "test_user", "ticker": "AAPL"}]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_execute
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        mock_execute
+    )
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
-    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = mock_execute
+    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = (
+        mock_execute
+    )
 
     svc = WatchlistService()
 
@@ -80,7 +89,7 @@ def test_watchlist_service(mock_supabase_client) -> None:
     assert removed is True
 
 
-def test_prediction_service(mock_supabase_client) -> None:
+def test_prediction_service(mock_supabase_client: MagicMock) -> None:
     mock_execute = MagicMock()
     mock_execute.data = [
         {
@@ -94,7 +103,9 @@ def test_prediction_service(mock_supabase_client) -> None:
         }
     ]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_execute
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = (
+        mock_execute
+    )
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
@@ -110,10 +121,8 @@ def test_prediction_service(mock_supabase_client) -> None:
     record = PredictionRecord(
         ticker="AAPL",
         model="linear",
-        prediction_date="2026-06-22",
         predicted_price=150.0,
         confidence=0.8,
-        user_id="test_user",
     )
     saved = svc.save_prediction(record)
     assert saved["ticker"] == "AAPL"

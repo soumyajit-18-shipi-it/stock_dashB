@@ -25,7 +25,6 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - types-python-dotenv
           - types-requests
           - pydantic
           - fastapi
