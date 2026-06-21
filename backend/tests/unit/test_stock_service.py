@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 import pandas as pd
 import pytest
 from schemas import (
@@ -55,9 +55,7 @@ async def test_stock_service_full_analysis() -> None:
         patch("services.stock_service.finnhub_service") as mock_finnhub_svc,
     ):
         svc.data_provider.last_latency = 100.0
-        mock_finnhub_svc.get_company_profile = AsyncMock(
-            return_value=mock_finnhub
-        )
+        mock_finnhub_svc.get_company_profile = AsyncMock(return_value=mock_finnhub)
         mock_finnhub_svc.last_latency = 50.0
 
         res = await svc.get_full_stock_analysis(

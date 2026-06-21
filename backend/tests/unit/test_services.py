@@ -33,15 +33,11 @@ def test_history_service(mock_supabase_client: MagicMock) -> None:
         }
     ]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = (
-        mock_execute
-    )
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_execute
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
-    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = (
-        mock_execute
-    )
+    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = mock_execute
 
     svc = HistoryService()
 
@@ -63,15 +59,11 @@ def test_watchlist_service(mock_supabase_client: MagicMock) -> None:
     mock_execute = MagicMock()
     mock_execute.data = [{"user_id": "test_user", "ticker": "AAPL"}]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        mock_execute
-    )
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_execute
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
-    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = (
-        mock_execute
-    )
+    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = mock_execute
 
     svc = WatchlistService()
 
@@ -103,9 +95,7 @@ def test_prediction_service(mock_supabase_client: MagicMock) -> None:
         }
     ]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = (
-        mock_execute
-    )
+    mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_execute
     mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
         mock_execute
     )
