@@ -342,8 +342,8 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
     setError('');
     setStreaming(true);
 
+    let fullContent = '';
     try {
-      let fullContent = '';
       await streamChat(aiProviderConfig, nextMessages, controller.signal, (token) => {
         if (mountedRef.current && !controller.signal.aborted) {
           fullContent += token;
@@ -363,7 +363,14 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
       }
     } catch (err) {
       if (mountedRef.current && !(err instanceof DOMException && err.name === 'AbortError')) {
-        setError(err instanceof Error ? err.message : t('aiError'));
+        const message = err instanceof Error ? err.message : t('aiError');
+        setError(message);
+        if (fullContent) {
+          saveHistory(stockData.profile.ticker, [
+            ...updatedMessages,
+            { ...assistantMessage, content: fullContent },
+          ]);
+        }
       }
     } finally {
       if (mountedRef.current && abortRef.current === controller) {

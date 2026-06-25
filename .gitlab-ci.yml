@@ -5,6 +5,7 @@ stages:
   - security
   - test
   - coverage
+  - data
   - build
   - release
 
@@ -125,6 +126,38 @@ test:frontend:
     - cd frontend
     - npm ci
     - npm run test:run
+
+test:pwa-build:
+  stage: test
+  image: node:22-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build:pwa
+
+# ---------------------------------------------------------------------------
+# DATA / ML SMOKE STAGE
+# ---------------------------------------------------------------------------
+
+data:indic-validation:
+  stage: data
+  image: python:3.11-slim
+  script:
+    - python scripts/validate_indic_dataset.py
+    - python scripts/prepare_indic_dataset.py
+
+data:indic-model-smoke:
+  stage: data
+  image: python:3.11-slim
+  script:
+    - pip install scikit-learn joblib
+    - python scripts/train_indic_intent_model.py
+    - python scripts/evaluate_indic_intent_model.py
+  artifacts:
+    when: always
+    paths:
+      - reports/model-evaluation/indic_intent_metrics.json
+      - models/indic-intent-classifier/metadata.json
 
 # ---------------------------------------------------------------------------
 # COVERAGE STAGE

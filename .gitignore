@@ -34,3 +34,8 @@ models/
 
 .vercel
 .env*
+tmp_pytest/
+coverage.xml
+plan.md
+
+

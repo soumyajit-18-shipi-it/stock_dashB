@@ -32,11 +32,13 @@ export interface WatchlistItem {
   id?: string;
   ticker: string;
   name?: string;
+  company_name?: string;
   created_at?: string;
 }
 
 export interface SearchHistoryItem {
   id?: string;
+  query?: string;
   ticker: string;
   searched_at?: string;
 }
@@ -72,4 +74,28 @@ export interface AppState {
   setPredictions: (items: PredictionRecord[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+}
+
+export interface FeedbackIssue {
+  id: string;
+  user_id?: string;
+  email?: string;
+  category: string;
+  title: string;
+  description: string;
+  page_url?: string;
+  screenshot_url?: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminStats {
+  total_users: number;
+  new_users_today: number;
+  new_users_this_week: number;
+  total_feedback_issues: number;
+  open_feedback_issues: number;
+  last_updated: string;
 }

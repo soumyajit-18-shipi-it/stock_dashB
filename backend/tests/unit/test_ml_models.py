@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from features.engineering import FeatureEngineer
+from ml.data_cleaning import sanitize_features, validate_training_matrix
 from ml.linear_model import LinearRegressionModel
 from ml.random_forest_model import RandomForestModel
 
@@ -71,3 +72,27 @@ class TestMLModels:
         model.train(self.X, self.y)
         confidence = model.get_confidence_score()
         assert 0 <= confidence <= 1
+
+    def test_training_matrix_sanitizes_non_finite_values(self) -> None:
+        X = self.X.copy().astype(float)
+        y = self.y.copy()
+        X.iloc[0, 0] = np.inf
+        X.iloc[1, 1] = -np.inf
+        X.iloc[2, 2] = np.nan
+        y.iloc[3] = np.inf
+
+        clean_X, clean_y = validate_training_matrix(X, y)
+
+        assert len(clean_X) == len(clean_y)
+        assert np.isfinite(clean_X.to_numpy(dtype=float)).all()
+        assert np.isfinite(clean_y.to_numpy(dtype=float)).all()
+
+    def test_prediction_features_are_filled_and_clipped(self) -> None:
+        X = pd.DataFrame({"a": [np.inf], "b": [np.nan], "c": [1e30]})
+
+        clean_X = sanitize_features(X)
+
+        assert np.isfinite(clean_X.to_numpy(dtype=float)).all()
+        assert clean_X.loc[0, "a"] == 0.0
+        assert clean_X.loc[0, "b"] == 0.0
+        assert clean_X.loc[0, "c"] < 1e30

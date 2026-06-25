@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from ml.base_model import BaseModel
+from ml.data_cleaning import sanitize_features, validate_training_matrix
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
@@ -44,9 +45,10 @@ class RandomForestModel(BaseModel):
     # ------------------------------------------------------------------ #
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
-        self.feature_names_ = list(X.columns) if isinstance(X, pd.DataFrame) else []
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        y_arr = y.values if isinstance(y, pd.Series) else y
+        X_clean, y_clean = validate_training_matrix(X, y)
+        self.feature_names_ = list(X_clean.columns)
+        X_arr = X_clean.values
+        y_arr = y_clean.values
 
         X_train, X_test, y_train, y_test = train_test_split(
             X_arr, y_arr, test_size=0.2, shuffle=False
@@ -78,7 +80,7 @@ class RandomForestModel(BaseModel):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained():
             raise ValueError("RandomForestModel has not been trained yet.")
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
+        X_arr = sanitize_features(X).values
         return cast(np.ndarray, self.model.predict(X_arr))
 
     def predict_interval(
@@ -96,7 +98,7 @@ class RandomForestModel(BaseModel):
         """
         if not self.is_trained():
             raise ValueError("RandomForestModel has not been trained yet.")
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
+        X_arr = sanitize_features(X).values
         tree_preds = np.array([t.predict(X_arr) for t in self.model.estimators_])
         lower = np.percentile(tree_preds, percentiles[0], axis=0)
         upper = np.percentile(tree_preds, percentiles[1], axis=0)

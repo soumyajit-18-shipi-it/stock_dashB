@@ -3,7 +3,9 @@ import type { StockResponse } from '../types';
 export function currencyForStock(stock?: StockResponse | null): string {
   const currency = stock?.profile.currency?.toUpperCase();
   if (currency) return currency;
-  return stock?.profile.ticker?.endsWith('.NS') ? 'INR' : 'USD';
+  const ticker = stock?.profile.ticker ?? '';
+  if (ticker.endsWith('.NS') || ticker.endsWith('.BO')) return 'INR';
+  return 'USD';
 }
 
 export function formatCurrency(value?: number | null, currency = 'USD'): string {

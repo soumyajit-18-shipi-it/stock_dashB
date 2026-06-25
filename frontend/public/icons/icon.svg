@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Stock Intelligence Dashboard icon">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <path d="M112 352h288" stroke="#94a3b8" stroke-width="28" stroke-linecap="round"/>
+  <path d="M128 320l72-72 56 40 120-128" fill="none" stroke="#10b981" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="320" r="20" fill="#34d399"/>
+  <circle cx="200" cy="248" r="20" fill="#34d399"/>
+  <circle cx="256" cy="288" r="20" fill="#34d399"/>
+  <circle cx="376" cy="160" r="20" fill="#34d399"/>
+</svg>

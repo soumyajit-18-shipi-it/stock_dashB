@@ -180,6 +180,21 @@ class StockPredictor:
         """
         fetch_range = "1y" if range_key == "1m" else range_key
         df = self.data_provider.get_stock_data(ticker, fetch_range)
+        return self.predict_from_data(ticker, model_type, range_key, df)
+
+    def predict_from_data(
+        self,
+        ticker: str,
+        model_type: ModelEnum,
+        range_key: str,
+        df: pd.DataFrame,
+    ) -> Tuple[PredictionResult, ModelMetrics]:
+        """
+        Run a single model using already-fetched OHLCV data.
+
+        This avoids a second provider call when the API endpoint has already
+        loaded history for charts and profile metadata.
+        """
         model = self._get_or_train(model_type, df, ticker, range_key)
 
         X_pred = self.feature_engineer.prepare_prediction_input(df)

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import Plot from 'react-plotly.js';
 
+import { LazyPlot } from './LazyPlot';
 import { useUIStore } from '../store/ui_store';
 
 import type { StockPricePoint } from '../types';
@@ -89,7 +89,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
 
   return (
     <div className="w-full h-48 bg-slate-800/30 rounded-xl border border-slate-700 p-4">
-      <Plot data={[trace]} layout={layout} config={config} className="w-full h-full" />
+      <LazyPlot data={[trace]} layout={layout} config={config} className="w-full h-full" />
     </div>
   );
 }

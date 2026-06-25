@@ -24,6 +24,8 @@ build
 .DS_Store
 .bolt
 .specify
-models/
+models/*
+!models/indic-intent-classifier/
+!models/indic-intent-classifier/**
 specs/
 supabase/

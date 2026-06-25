@@ -19,12 +19,25 @@ class HistoryService:
         )
         return [SearchHistoryItem(**item) for item in response.data]
 
-    def add_search_history(self, user_id: str | None, ticker: str) -> SearchHistoryItem:
+    def add_search_history(
+        self, user_id: str | None, query: str, ticker: str | None = None
+    ) -> SearchHistoryItem:
+        symbol = (ticker or query).strip().upper()
         data = {
             "user_id": user_id,
-            "ticker": ticker,
+            "query": query.strip(),
+            "ticker": symbol,
         }
-        response = self.client.table("search_history").insert(data).execute()
+        try:
+            response = self.client.table("search_history").insert(data).execute()
+        except Exception:  # pylint: disable=broad-exception-caught
+            response = (
+                self.client.table("search_history")
+                .insert({"user_id": user_id, "ticker": symbol})
+                .execute()
+            )
+            if response.data:
+                response.data[0]["query"] = query.strip()
         return SearchHistoryItem(**response.data[0])
 
     def clear_search_history(self, user_id: str | None) -> bool:

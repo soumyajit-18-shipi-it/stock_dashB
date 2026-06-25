@@ -51,7 +51,10 @@ async def test_stock_service_full_analysis() -> None:
         ) as mock_get_company_info,
         patch.object(
             svc.predictor, "predict", return_value=(mock_pred, mock_metrics)
-        ) as mock_predict,
+        ),
+        patch.object(
+            svc.predictor, "predict_from_data", return_value=(mock_pred, mock_metrics)
+        ) as mock_predict_from_data,
         patch("services.stock_service.finnhub_service") as mock_finnhub_svc,
     ):
         svc.data_provider.last_latency = 100.0
@@ -69,4 +72,47 @@ async def test_stock_service_full_analysis() -> None:
 
         mock_get_stock_data.assert_called_once()
         mock_get_company_info.assert_called_once()
-        mock_predict.assert_called_once()
+        mock_predict_from_data.assert_called_once()
+
+
+def test_stock_profile_fallback_maps_provider_fields() -> None:
+    svc = StockService()
+    df = pd.DataFrame(
+        {
+            "Open": [100.0],
+            "High": [105.0],
+            "Low": [98.0],
+            "Close": [102.0],
+            "Volume": [1000],
+        },
+        index=pd.date_range("2026-06-01", periods=1),
+    )
+    df.attrs["metadata"] = {
+        "regularMarketPrice": 102.0,
+        "currency": "INR",
+        "exchangeName": "NSI",
+    }
+
+    profile = svc._merge_profile_data(
+        "RELIANCE.NS",
+        {
+            "sector": "Energy",
+            "industry": "Oil & Gas Refining & Marketing",
+            "marketCap": 18_400_000_000_000,
+            "longName": "Reliance Industries Limited",
+            "website": "https://www.ril.com",
+        },
+        {
+            "name": "Reliance Industries",
+            "finnhubIndustry": "Energy",
+            "country": "IN",
+            "logo": "https://example.com/logo.png",
+        },
+        df,
+    )
+
+    assert profile.sector == "Energy"
+    assert profile.industry == "Energy"
+    assert profile.market_cap == 18_400_000_000_000
+    assert profile.website == "https://www.ril.com"
+    assert profile.logo == "https://example.com/logo.png"

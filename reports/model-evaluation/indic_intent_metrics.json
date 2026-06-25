@@ -1,0 +1,187 @@
+{
+  "metadata": {
+    "dataset": "data\\indic\\sample_indic_finance_queries.csv",
+    "training_rows": 63,
+    "test_rows": 33,
+    "split": "train_test_split(test_size=0.34, random_state=42, stratify=intent)",
+    "model_type": "TF-IDF char n-grams + LogisticRegression",
+    "created_by": "scripts/train_indic_intent_model.py"
+  },
+  "accuracy": 0.3333333333333333,
+  "macro_f1": 0.2954545454545454,
+  "weighted_f1": 0.2966023875114784,
+  "macro_precision": 0.31726190476190474,
+  "macro_recall": 0.33125,
+  "classification_report": {
+    "company_summary": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 4.0
+    },
+    "financial_term_explanation": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 4.0
+    },
+    "portfolio_question": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 4.0
+    },
+    "report_generation": {
+      "precision": 0.3,
+      "recall": 0.75,
+      "f1-score": 0.42857142857142855,
+      "support": 4.0
+    },
+    "risk_explanation": {
+      "precision": 0.2857142857142857,
+      "recall": 0.5,
+      "f1-score": 0.36363636363636365,
+      "support": 4.0
+    },
+    "stock_prediction_query": {
+      "precision": 0.3333333333333333,
+      "recall": 0.25,
+      "f1-score": 0.2857142857142857,
+      "support": 4.0
+    },
+    "stock_price_query": {
+      "precision": 0.2857142857142857,
+      "recall": 0.4,
+      "f1-score": 0.3333333333333333,
+      "support": 5.0
+    },
+    "watchlist_help": {
+      "precision": 0.3333333333333333,
+      "recall": 0.25,
+      "f1-score": 0.2857142857142857,
+      "support": 4.0
+    },
+    "accuracy": 0.3333333333333333,
+    "macro avg": {
+      "precision": 0.31726190476190474,
+      "recall": 0.33125,
+      "f1-score": 0.2954545454545454,
+      "support": 33.0
+    },
+    "weighted avg": {
+      "precision": 0.3163059163059163,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.2966023875114784,
+      "support": 33.0
+    }
+  },
+  "labels": [
+    "company_summary",
+    "financial_term_explanation",
+    "portfolio_question",
+    "report_generation",
+    "risk_explanation",
+    "stock_prediction_query",
+    "stock_price_query",
+    "watchlist_help"
+  ],
+  "confusion_matrix": [
+    [
+      2,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      2,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      2
+    ],
+    [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      2,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      2,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      1,
+      1
+    ]
+  ],
+  "per_language": {
+    "en": {
+      "accuracy": 0.25,
+      "macro_f1": 0.20833333333333331,
+      "samples": 12
+    },
+    "hi": {
+      "accuracy": 0.25,
+      "macro_f1": 0.1285714285714286,
+      "samples": 8
+    },
+    "or": {
+      "accuracy": 0.46153846153846156,
+      "macro_f1": 0.39166666666666666,
+      "samples": 13
+    }
+  }
+}

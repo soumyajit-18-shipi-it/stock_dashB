@@ -1,0 +1,100 @@
+{
+  "method": "Existing StockPredictor train/test split metrics per ticker and model.",
+  "range": "1y",
+  "tickers": [
+    "AAPL",
+    "MSFT",
+    "RELIANCE.NS"
+  ],
+  "summary": {
+    "rmse_mean": 17.417135521478098,
+    "mae_mean": 14.14289008880197,
+    "r2_mean": 0.4024616060864982
+  },
+  "results": [
+    {
+      "ticker": "AAPL",
+      "range": "1y",
+      "model": "linear",
+      "predicted_price": 279.5964,
+      "trend": "increase",
+      "confidence": 0.9211,
+      "rmse": 4.833353009099068,
+      "mae": 3.8870104826571543,
+      "r2": 0.8765654898918807,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    },
+    {
+      "ticker": "AAPL",
+      "range": "1y",
+      "model": "rf",
+      "predicted_price": 278.075,
+      "trend": "decrease",
+      "confidence": 0.0,
+      "rmse": 19.66546569234865,
+      "mae": 16.658051786151038,
+      "r2": -1.0433748199578958,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    },
+    {
+      "ticker": "MSFT",
+      "range": "1y",
+      "model": "linear",
+      "predicted_price": 359.7404,
+      "trend": "increase",
+      "confidence": 0.8962,
+      "rmse": 8.552995765531271,
+      "mae": 7.014992583417352,
+      "r2": 0.826484126714301,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    },
+    {
+      "ticker": "MSFT",
+      "range": "1y",
+      "model": "rf",
+      "predicted_price": 375.1532,
+      "trend": "increase",
+      "confidence": 0.718,
+      "rmse": 14.751417151665903,
+      "mae": 11.751404026901128,
+      "r2": 0.48385682942310326,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    },
+    {
+      "ticker": "RELIANCE.NS",
+      "range": "1y",
+      "model": "linear",
+      "predicted_price": 1319.4124,
+      "trend": "increase",
+      "confidence": 0.9064,
+      "rmse": 19.73464917364455,
+      "mae": 15.869617358619768,
+      "r2": 0.8383580783745261,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    },
+    {
+      "ticker": "RELIANCE.NS",
+      "range": "1y",
+      "model": "rf",
+      "predicted_price": 1345.5761,
+      "trend": "increase",
+      "confidence": 0.6978,
+      "rmse": 36.964932336579146,
+      "mae": 29.67626429506538,
+      "r2": 0.4328799320730742,
+      "mape": null,
+      "note": "MAPE is null because the next-day actual is not known at prediction time in this smoke evaluation."
+    }
+  ],
+  "errors": {},
+  "limitations": [
+    "This is not a full walk-forward backtest.",
+    "Metrics are generated during each model training run from the existing 80/20 chronological split.",
+    "Fresh results require network access to public market data providers."
+  ]
+}

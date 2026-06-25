@@ -1,8 +1,11 @@
-import { BarChart3, Moon, Settings, Sun } from 'lucide-react';
+import { BarChart3, Moon, Settings, Sun, Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { languages, type AppLanguage } from '../i18n';
+import { AuthButton } from './AuthButton';
+import { UserMenu } from './UserMenu';
 import { WatchlistDropdown } from './WatchlistDropdown';
+import { useAuth } from '../hooks/useAuth';
 import { useUIStore } from '../store/ui_store';
 
 interface NavbarProps {
@@ -12,7 +15,8 @@ interface NavbarProps {
 
 export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
   const { t } = useTranslation();
-  const { language, setLanguage, setAiSettingsOpen } = useUIStore();
+  const { language, lowDataMode, setLanguage, setLowDataMode, setAiSettingsOpen, setAiChatOpen } = useUIStore();
+  const { user } = useAuth();
 
   return (
     <nav className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50">
@@ -53,6 +57,16 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
                 </option>
               ))}
             </select>
+            {user && (
+              <button
+                onClick={() => setAiChatOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow"
+                aria-label={t('askAi')}
+              >
+                <Bot className="h-4 w-4" />
+                <span>{t('askAi')}</span>
+              </button>
+            )}
             <button
               onClick={() => setAiSettingsOpen(true)}
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
@@ -71,6 +85,18 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
                 <Moon className="h-5 w-5 text-slate-400" />
               )}
             </button>
+            <button
+              onClick={() => setLowDataMode(!lowDataMode)}
+              className={`hidden rounded-lg px-3 py-1.5 text-sm transition-colors sm:inline-flex ${
+                lowDataMode
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+              aria-pressed={lowDataMode}
+            >
+              Low data
+            </button>
+            {user ? <UserMenu /> : <AuthButton />}
           </div>
         </div>
       </div>

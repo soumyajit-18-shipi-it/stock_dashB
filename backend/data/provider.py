@@ -51,12 +51,26 @@ class StockDataProvider:
     def _get_ticker(self, ticker: str) -> yf.Ticker:
         return yf.Ticker(ticker, session=self.session)
 
-    def _get_current_ttl(self) -> int:
+    def _get_current_ttl(self, ticker: str = "") -> int:
         try:
-            now_ny = pd.Timestamp.now(tz="America/New_York")
-            is_weekend = now_ny.weekday() >= 5
+            upper = ticker.strip().upper()
+            if upper.endswith(".NS") or upper.endswith(".BO"):
+                # NSE/BSE trading hours: 09:15-15:30 IST (UTC+5:30)
+                now_exchange = pd.Timestamp.now(tz="Asia/Kolkata")
+                is_weekend = now_exchange.weekday() >= 5
+                is_market_hours = not is_weekend and (
+                    (now_exchange.hour == 9 and now_exchange.minute >= 15)
+                    or (10 <= now_exchange.hour < 15)
+                    or (now_exchange.hour == 15 and now_exchange.minute <= 30)
+                )
+                return 60 if is_market_hours else 300
+
+            # Default: NYSE/NASDAQ trading hours: 09:30-16:00 ET
+            now_exchange = pd.Timestamp.now(tz="America/New_York")
+            is_weekend = now_exchange.weekday() >= 5
             is_market_hours = not is_weekend and (
-                (now_ny.hour == 9 and now_ny.minute >= 30) or (10 <= now_ny.hour < 16)
+                (now_exchange.hour == 9 and now_exchange.minute >= 30)
+                or (10 <= now_exchange.hour < 16)
             )
             return 60 if is_market_hours else 300
         except Exception as e:
@@ -128,7 +142,7 @@ class StockDataProvider:
         )
 
         # Determine exchange timezone name
-        tz_name = meta.get("exchangeTimezoneName") or "America/New_York"
+        tz_name = meta.get("exchangeTimezoneName") or "UTC"
         try:
             df.index = df.index.tz_localize("UTC").tz_convert(tz_name)
         except Exception:
@@ -141,13 +155,14 @@ class StockDataProvider:
         df.index.name = "Date"
         df.attrs["metadata"] = {
             "regularMarketPrice": sanitize_value(meta.get("regularMarketPrice")),
-            "currency": sanitize_value(meta.get("currency") or "USD"),
+            "currency": sanitize_value(meta.get("currency") or ("INR" if ticker.upper().endswith(".NS") or ticker.upper().endswith(".BO") else "USD")),
             "previousClose": sanitize_value(
                 meta.get("previousClose") or meta.get("chartPreviousClose")
             ),
             "fiftyTwoWeekHigh": sanitize_value(meta.get("fiftyTwoWeekHigh")),
             "fiftyTwoWeekLow": sanitize_value(meta.get("fiftyTwoWeekLow")),
             "exchangeName": sanitize_value(meta.get("exchangeName")),
+            "longName": sanitize_value(meta.get("longName") or meta.get("shortName")),
         }
 
         # Keep only the rows with valid core price candles
@@ -183,6 +198,9 @@ class StockDataProvider:
             "currency": sanitize_value(quote.get("currency")),
             "exchange": sanitize_value(quote.get("exchange")),
             "regularMarketPrice": sanitize_value(quote.get("regularMarketPrice")),
+            "country": sanitize_value(quote.get("market")),
+            "website": None,
+            "logo": None,
         }
 
     def get_stock_data(
@@ -190,7 +208,7 @@ class StockDataProvider:
     ) -> pd.DataFrame:
         start_time = time.time()
         cache_key = f"{ticker}_{range_key}_df"
-        ttl = self._get_current_ttl()
+        ttl = self._get_current_ttl(ticker)
 
         cached_tuple = self.cache.get(cache_key)
         if (
@@ -345,7 +363,7 @@ class StockDataProvider:
     def get_company_info(self, ticker: str) -> dict[str, Any]:
         start_time = time.time()
         cache_key = f"{ticker}_info_dict"
-        ttl = self._get_current_ttl()
+        ttl = 12 * 60 * 60
 
         cached_tuple = self.cache.get(cache_key)
         if cached_tuple is not None and isinstance(cached_tuple, tuple):
@@ -360,88 +378,89 @@ class StockDataProvider:
                 f"Attempting to fetch company info for {ticker} using yfinance..."
             )
 
-            def _fetch_ticker_info() -> Dict[str, Any]:
+            def _get_fast_info_vals() -> Dict[str, Any]:
+                """Extract available fields from t.fast_info (reliable)."""
                 t = self._get_ticker(ticker)
-                fast_info = t.fast_info
+                fi = t.fast_info
 
-                def get_fast_val(key: str, attr: str) -> Any:
-                    try:
-                        val = fast_info[key]
-                        if val is not None and not (
-                            isinstance(val, float) and pd.isna(val)
-                        ):
-                            return val
-                    except Exception:
-                        pass
-                    try:
-                        val = getattr(fast_info, attr)
-                        if val is not None and not (
-                            isinstance(val, float) and pd.isna(val)
-                        ):
-                            return val
-                    except Exception:
-                        pass
+                def get_val(key: str, attr: str) -> Any:
+                    for source in [lambda k: fi[k], lambda k: getattr(fi, k)]:
+                        try:
+                            val = source(attr)
+                            if val is not None and not (
+                                isinstance(val, float) and pd.isna(val)
+                            ):
+                                return val
+                        except Exception:
+                            pass
                     return None
 
-                pc = get_fast_val("previous_close", "previous_close")
-                h52 = get_fast_val("year_high", "year_high")
-                l52 = get_fast_val("year_low", "year_low")
-                mc = get_fast_val("market_cap", "market_cap")
-                curr = get_fast_val("currency", "currency")
-                exch = get_fast_val("exchange", "exchange")
-                lp = get_fast_val("last_price", "last_price")
-
-                # Fetch t.info only if required (for sector, industry, longName, and fallback for others)
-                full_info = {}
-                try:
-                    full_info = t.info
-                except Exception as info_err:
-                    logger.warning(f"Failed to fetch t.info for {ticker}: {info_err}")
-
                 return {
-                    "sector": sanitize_value(full_info.get("sector")),
-                    "industry": sanitize_value(full_info.get("industry")),
-                    "marketCap": sanitize_value(
-                        mc
-                        if mc is not None
-                        else (
-                            full_info.get("marketCap")
-                            or (
-                                full_info.get("marketCapitalization", 0) * 1000000
-                                if full_info.get("marketCapitalization")
-                                else None
-                            )
-                        )
-                    ),
-                    "previousClose": sanitize_value(
-                        pc if pc is not None else full_info.get("previousClose")
-                    ),
-                    "longName": sanitize_value(
-                        full_info.get("longName") or full_info.get("shortName")
-                    ),
-                    "fiftyTwoWeekHigh": sanitize_value(
-                        h52 if h52 is not None else full_info.get("fiftyTwoWeekHigh")
-                    ),
-                    "fiftyTwoWeekLow": sanitize_value(
-                        l52 if l52 is not None else full_info.get("fiftyTwoWeekLow")
-                    ),
-                    "currency": sanitize_value(
-                        curr if curr is not None else full_info.get("currency")
-                    ),
-                    "exchange": sanitize_value(
-                        exch if exch is not None else full_info.get("exchange")
-                    ),
-                    "regularMarketPrice": sanitize_value(
-                        lp
-                        if lp is not None
-                        else (
-                            full_info.get("regularMarketPrice")
-                            or full_info.get("currentPrice")
-                        )
-                    ),
+                    "previousClose": sanitize_value(get_val("previous_close", "previous_close")),
+                    "fiftyTwoWeekHigh": sanitize_value(get_val("year_high", "year_high")),
+                    "fiftyTwoWeekLow": sanitize_value(get_val("year_low", "year_low")),
+                    "marketCap": sanitize_value(get_val("market_cap", "market_cap")),
+                    "currency": sanitize_value(get_val("currency", "currency")),
+                    "exchange": sanitize_value(get_val("exchange", "exchange")),
+                    "regularMarketPrice": sanitize_value(get_val("last_price", "last_price")),
                 }
 
-            info = self._get_with_retry(_fetch_ticker_info)
+            def _get_t_info() -> Dict[str, Any]:
+                """Fetch t.info (may be rate-limited)."""
+                t = self._get_ticker(ticker)
+                try:
+                    raw = t.info
+                    return {
+                        "sector": sanitize_value(raw.get("sector")),
+                        "industry": sanitize_value(raw.get("industry")),
+                        "marketCap": sanitize_value(
+                            raw.get("marketCap")
+                            or (
+                                raw.get("marketCapitalization", 0) * 1000000
+                                if raw.get("marketCapitalization")
+                                else None
+                            )
+                        ),
+                        "previousClose": sanitize_value(raw.get("previousClose")),
+                        "longName": sanitize_value(raw.get("longName") or raw.get("shortName")),
+                        "fiftyTwoWeekHigh": sanitize_value(raw.get("fiftyTwoWeekHigh")),
+                        "fiftyTwoWeekLow": sanitize_value(raw.get("fiftyTwoWeekLow")),
+                        "currency": sanitize_value(raw.get("currency")),
+                        "exchange": sanitize_value(raw.get("exchange")),
+                        "regularMarketPrice": sanitize_value(
+                            raw.get("regularMarketPrice") or raw.get("currentPrice")
+                        ),
+                        "country": sanitize_value(raw.get("country")),
+                        "website": sanitize_value(raw.get("website")),
+                        "logo": sanitize_value(raw.get("logo_url") or raw.get("logo")),
+                        "sharesOutstanding": sanitize_value(raw.get("sharesOutstanding")),
+                        "impliedSharesOutstanding": sanitize_value(raw.get("impliedSharesOutstanding")),
+                    }
+                except Exception as e:
+                    logger.warning(f"t.info failed for {ticker}: {e}")
+                    return {}
+
+            # Step 1: fetch fast_info (reliable, rarely fails)
+            fast = _get_fast_info_vals()
+            info.update(fast)
+            logger.info(
+                "fast_info for %s: marketCap=%s currency=%s exchange=%s price=%s",
+                ticker, info.get("marketCap"), info.get("currency"),
+                info.get("exchange"), info.get("regularMarketPrice"),
+            )
+
+            # Step 2: try t.info with longer delays (may be rate-limited)
+            t_info_result = self._get_with_retry(
+                _get_t_info, max_retries=3, initial_delay=2.0, backoff_factor=3.0
+            )
+            info.update({k: v for k, v in t_info_result.items() if v is not None})
+            logger.info(
+                "t.info result for %s: sector=%s industry=%s longName=%s marketCap=%s",
+                ticker,
+                info.get("sector"), info.get("industry"),
+                info.get("longName"), info.get("marketCap"),
+            )
+
             info = {k: sanitize_value(v) for k, v in info.items()}
         except Exception as e:
             logger.warning(
@@ -456,4 +475,10 @@ class StockDataProvider:
 
         self.cache.set(cache_key, (time.time(), info))
         self.last_latency = (time.time() - start_time) * 1000
+        logger.info(
+            "Final company info for %s: keys=%s sector=%s industry=%s marketCap=%s longName=%s",
+            ticker, list(info.keys()),
+            info.get("sector"), info.get("industry"),
+            info.get("marketCap"), info.get("longName"),
+        )
         return info

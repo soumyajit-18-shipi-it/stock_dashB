@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { api } from './api_client';
+import { useAuthStore } from '../store/auth_store';
+
+import type { User } from '@supabase/supabase-js';
 
 describe('API Client', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
     localStorage.clear();
     vi.clearAllMocks();
+    useAuthStore.setState({
+      user: { id: 'test-user-id', email: 'test@example.com' } as User,
+      token: 'mock-access-token',
+      loading: false,
+      error: null,
+      isAdmin: false,
+    });
   });
 
   it('should fetch stock data from FastAPI', async () => {
@@ -40,7 +50,7 @@ describe('API Client', () => {
 
     const data = await api.getWatchlist();
     expect(data).toEqual(mockWatchlist);
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist'));
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/watchlist'), expect.any(Object));
   });
 
   it('should add to watchlist via FastAPI', async () => {
@@ -56,7 +66,11 @@ describe('API Client', () => {
       expect.stringContaining('/watchlist'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ ticker: 'AAPL', name: 'Apple Inc.' }),
+        body: JSON.stringify({
+          ticker: 'AAPL',
+          name: 'Apple Inc.',
+          company_name: 'Apple Inc.',
+        }),
       })
     );
   });

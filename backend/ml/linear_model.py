@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from ml.base_model import BaseModel
+from ml.data_cleaning import sanitize_features, validate_training_matrix
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -38,8 +39,9 @@ class LinearRegressionModel(BaseModel):
     # ------------------------------------------------------------------ #
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        y_arr = y.values if isinstance(y, pd.Series) else y
+        X_clean, y_clean = validate_training_matrix(X, y)
+        X_arr = X_clean.values
+        y_arr = y_clean.values
 
         X_train, X_test, y_train, y_test = train_test_split(
             X_arr, y_arr, test_size=0.2, shuffle=False
@@ -55,7 +57,7 @@ class LinearRegressionModel(BaseModel):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained():
             raise ValueError("LinearRegressionModel has not been trained yet.")
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
+        X_arr = sanitize_features(X).values
         return cast(np.ndarray, self.model.predict(X_arr))
 
     # ------------------------------------------------------------------ #
@@ -63,13 +65,25 @@ class LinearRegressionModel(BaseModel):
     # ------------------------------------------------------------------ #
 
     def save(self, path: str) -> None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         joblib.dump({"model": self.model, "metrics": self.metrics}, path)
 
     def load(self, path: str) -> bool:
         if not os.path.exists(path):
             return False
         data = joblib.load(path)
-        self.model = data["model"]
+        loaded_model = data["model"]
+        # Backward compat: older versions saved bare LinearRegression
+        # without the Pipeline wrapper. Re-wrap so is_trained() works.
+        if not hasattr(loaded_model, "named_steps"):
+            self.model = Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    ("lr", loaded_model),
+                ]
+            )
+        else:
+            self.model = loaded_model
         self.metrics = data.get("metrics", self.metrics)
         return True
 
@@ -79,7 +93,9 @@ class LinearRegressionModel(BaseModel):
 
     def is_trained(self) -> bool:
         try:
-            lr_step = self.model.named_steps.get("lr")
-            return lr_step is not None and hasattr(lr_step, "coef_")
+            if hasattr(self.model, "named_steps"):
+                lr_step = self.model.named_steps.get("lr")
+                return lr_step is not None and hasattr(lr_step, "coef_")
+            return hasattr(self.model, "coef_")
         except AttributeError:
             return False

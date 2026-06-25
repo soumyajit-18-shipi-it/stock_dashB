@@ -11,7 +11,7 @@ interface CompanyProfileCardProps {
 
 export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
   const { t } = useTranslation();
-  const currency = profile.currency || (profile.ticker.endsWith('.NS') ? 'INR' : 'USD');
+  const currency = profile.currency || (profile.ticker.endsWith('.NS') || profile.ticker.endsWith('.BO') ? 'INR' : 'USD');
 
   return (
     <div className="glass rounded-xl border border-slate-700 p-6">

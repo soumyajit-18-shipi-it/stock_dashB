@@ -11,6 +11,14 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,html,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,html,md}\"",
     "preview": "vite preview",
+    "build:pwa": "vite build",
+    "desktop:dev": "npx @tauri-apps/cli@latest dev",
+    "desktop:build": "npx @tauri-apps/cli@latest build",
+    "mobile:sync": "npx @capacitor/cli@latest sync",
+    "mobile:android": "npx @capacitor/cli@latest open android",
+    "mobile:ios": "npx @capacitor/cli@latest open ios",
+    "analyze:bundle": "vite build --mode analyze",
+    "lighthouse:local": "npx lighthouse http://localhost:4173 --output html --output-path ../reports/lighthouse/local.html",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest",
     "test:run": "vitest run",
@@ -28,6 +36,7 @@
     "prepare": "husky || true"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "@tanstack/react-query": "^5.101.0",
     "html2canvas": "^1.4.1",
     "i18next": "^26.3.1",

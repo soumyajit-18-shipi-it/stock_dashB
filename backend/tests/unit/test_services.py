@@ -59,11 +59,14 @@ def test_watchlist_service(mock_supabase_client: MagicMock) -> None:
     mock_execute = MagicMock()
     mock_execute.data = [{"user_id": "test_user", "ticker": "AAPL"}]
 
-    mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_execute
-    mock_supabase_client.table.return_value.insert.return_value.execute.return_value = (
-        mock_execute
-    )
-    mock_supabase_client.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = mock_execute
+    query = mock_supabase_client.table.return_value
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.order.return_value = query
+    query.limit.return_value = query
+    query.insert.return_value = query
+    query.delete.return_value = query
+    query.execute.return_value = mock_execute
 
     svc = WatchlistService()
 

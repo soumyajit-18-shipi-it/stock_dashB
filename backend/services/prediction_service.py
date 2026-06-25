@@ -18,7 +18,11 @@ class PredictionService:
         )
         return list(response.data)
 
-    def save_prediction(self, record: PredictionRecord) -> dict[str, Any]:
+    def save_prediction(
+        self, record: PredictionRecord, user_id: str | None = None
+    ) -> dict[str, Any]:
         data = record.dict()
+        if user_id:
+            data["user_id"] = user_id
         response = self.client.table("predictions").insert(data).execute()
         return dict(response.data[0])

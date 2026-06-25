@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import Plot from 'react-plotly.js';
 
+import { LazyPlot } from './LazyPlot';
 import { useUIStore } from '../store/ui_store';
 import { currencyForStock } from '../utils/format';
 
@@ -119,7 +119,7 @@ export function StockChart({ data, title, stockData }: StockChartProps) {
 
   return (
     <div className="w-full h-96 bg-slate-800/30 rounded-xl border border-slate-700 p-4">
-      <Plot data={traces} layout={layout} config={config} className="w-full h-full" />
+      <LazyPlot data={traces} layout={layout} config={config} className="w-full h-full" />
     </div>
   );
 }

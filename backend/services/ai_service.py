@@ -6,6 +6,9 @@ from typing import List, Dict, Optional, AsyncGenerator, cast
 from core.config import settings
 
 logger = logging.getLogger("stock_dashboard")
+AI_PROVIDER_CONFIG_ERROR = (
+    "AI provider is not configured. Please set DEFAULT_GROQ_API_KEY or configure Ollama."
+)
 
 
 class AIService:
@@ -145,6 +148,9 @@ class AIService:
                 continue
             valid_configs.append(c)
 
+        missing_default_provider = p in {"auto", "groq"} and not (
+            api_key or settings.DEFAULT_GROQ_API_KEY
+        )
         last_error = None
         for config in valid_configs:
             logger.info(
@@ -175,8 +181,15 @@ class AIService:
                 last_error = e
                 continue
 
+        if missing_default_provider:
+            yield f"data: {json.dumps({'error': AI_PROVIDER_CONFIG_ERROR})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
         if last_error:
             yield f"data: {json.dumps({'error': str(last_error)})}\n\n"
+        else:
+            yield f"data: {json.dumps({'error': AI_PROVIDER_CONFIG_ERROR})}\n\n"
         yield "data: [DONE]\n\n"
 
     async def _attempt_stream(

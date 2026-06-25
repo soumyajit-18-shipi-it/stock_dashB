@@ -1,4 +1,5 @@
 import { Plus, Check } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -22,13 +23,21 @@ export function Dashboard() {
   const { ticker, model } = useStore();
   const { t } = useTranslation();
   const { watchlist, add } = useWatchlist();
-  const { data: stockData, isLoading, error } = useStock();
+  const { data: stockData, isLoading, error, refetch } = useStock();
+  const [watchlistError, setWatchlistError] = useState('');
 
   const isInWatchlist = watchlist.some((item) => item.ticker === ticker);
 
   const handleAddToWatchlist = async () => {
     if (ticker && !isInWatchlist && stockData) {
-      await add(ticker, stockData.profile.name);
+      setWatchlistError('');
+      try {
+        await add(ticker, stockData.profile.name);
+      } catch (err) {
+        setWatchlistError(
+          err instanceof Error ? err.message : 'Failed to save watchlist item.'
+        );
+      }
     }
   };
 
@@ -44,7 +53,7 @@ export function Dashboard() {
         ) : isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <ErrorMessage message={t('fetchStockError')} />
+          <ErrorMessage message={error instanceof Error ? error.message : t('fetchStockError')} onRetry={() => refetch()} />
         ) : stockData ? (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -76,6 +85,11 @@ export function Dashboard() {
                 <AIReportButton stockData={stockData} />
               </div>
             </div>
+            {watchlistError && (
+              <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {watchlistError}
+              </p>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
@@ -96,10 +110,10 @@ export function Dashboard() {
                 />
               </div>
             </div>
-            <AskAIDrawer stockData={stockData} />
           </div>
         ) : null}
       </div>
+      <AskAIDrawer stockData={stockData || null} />
     </div>
   );
 }

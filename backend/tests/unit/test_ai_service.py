@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
+from core.config import settings
 from services.ai_service import AIService
 
 
@@ -59,3 +60,26 @@ async def test_ai_service_get_models_openai() -> None:
         models = await svc.get_models("openai", api_key="test-key")
         assert len(models) == 1
         assert models[0]["id"] == "gpt-4"
+
+
+@pytest.mark.asyncio
+async def test_ai_service_missing_provider_returns_clear_error(monkeypatch) -> None:
+    svc = AIService()
+
+    async def fail_attempt(**_kwargs):
+        raise RuntimeError("connection failed")
+        yield ""  # pragma: no cover
+
+    monkeypatch.setattr(settings, "DEFAULT_GROQ_API_KEY", "")
+    monkeypatch.setattr(svc, "_attempt_stream", fail_attempt)
+
+    chunks = [
+        chunk
+        async for chunk in svc.stream_chat(
+            messages=[{"role": "user", "content": "Explain Reliance stock"}],
+            provider="auto",
+        )
+    ]
+
+    joined = "".join(chunks)
+    assert "AI provider is not configured" in joined

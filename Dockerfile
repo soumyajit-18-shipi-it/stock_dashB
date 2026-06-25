@@ -1,8 +1,8 @@
 # Stage 1: Build Frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -24,7 +24,8 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Copy backend code
 COPY backend/ ./backend/
-COPY main.py ./
+COPY models/ ./models/
+COPY run.py ./
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -35,4 +36,4 @@ ENV PYTHONPATH=/app/backend
 EXPOSE 8000
 
 # Run uvicorn
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "run:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -14,7 +14,14 @@ export interface ModelOption {
 }
 
 const REQUEST_TIMEOUT_MS = 60000; // Increased to 60s as per user request
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL =
+  VITE_API_URL && VITE_API_URL !== '/api/v1'
+    ? VITE_API_URL
+    : typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000/api/v1'
+    : '/api/v1';
 
 export function isAIConfigured(config: AIProviderConfig): boolean {
   if (config.provider === 'ollama') return true; // Ollama has a default local URL
@@ -249,8 +256,10 @@ function buildSystemPrompt(stock: StockResponse, language: string): string {
 }
 
 async function parseSseStream(response: Response, onEvent: (data: string) => void) {
-  const reader = response.body?.getReader();
-  if (!reader) return;
+  if (!response.body) {
+    throw new Error(`AI stream response has no body (status ${response.status})`);
+  }
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   while (true) {
@@ -260,7 +269,7 @@ async function parseSseStream(response: Response, onEvent: (data: string) => voi
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
     for (const line of lines) {
-      const trimmed = line.trim();
+      const trimmed = line.replace(/\r$/, '').trim();
       if (!trimmed || !trimmed.startsWith('data:')) continue;
       const data = trimmed.slice(5).trim();
       if (data === '[DONE]') return;
@@ -269,21 +278,44 @@ async function parseSseStream(response: Response, onEvent: (data: string) => voi
   }
 }
 
-async function parseOpenAIStream(response: Response, onToken: (token: string) => void) {
+async function parseOpenAIStream(
+  response: Response,
+  onToken: (token: string) => void,
+): Promise<{ tokenCount: number; error: string }> {
+  let tokenCount = 0;
+  let streamError = '';
   await parseSseStream(response, (data) => {
+    let json: {
+      error?: unknown;
+      choices?: { delta?: { content?: string } }[];
+      delta?: { text?: string };
+    };
     try {
-      const json = JSON.parse(data);
-      const token = json.choices?.[0]?.delta?.content || json.delta?.text || '';
-      if (token) onToken(token);
+      json = JSON.parse(data);
     } catch {
-      /* Ignore */
+      if (data.includes('AI provider is not configured')) {
+        streamError = 'AI provider is not configured. Please set DEFAULT_GROQ_API_KEY or configure Ollama.';
+      }
+      return;
+    }
+    if (json.error) {
+      streamError = String(json.error);
+      return;
+    }
+    const token = json.choices?.[0]?.delta?.content || json.delta?.text || '';
+    if (token) {
+      tokenCount += 1;
+      onToken(token);
     }
   });
+  return { tokenCount, error: streamError };
 }
 
 async function parseJsonLineStream(response: Response, onToken: (token: string) => void) {
-  const reader = response.body?.getReader();
-  if (!reader) return;
+  if (!response.body) {
+    throw new Error(`AI stream response has no body (status ${response.status})`);
+  }
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   while (true) {
@@ -336,8 +368,8 @@ export async function streamChat(
       await parseJsonLineStream(response, onToken);
       console.info('Ollama direct stream finished');
       return;
-    } catch {
-      console.warn('Ollama direct chat failed, falling back to backend');
+    } catch (ollamaErr) {
+      console.warn('Ollama direct chat failed, falling back to backend:', ollamaErr);
     }
   }
 
@@ -363,7 +395,15 @@ export async function streamChat(
       REQUEST_TIMEOUT_MS
     );
 
-    await parseOpenAIStream(response, onToken);
+    const { tokenCount, error: streamError } = await parseOpenAIStream(response, onToken);
+    if (streamError) {
+      throw new Error(streamError);
+    }
+    if (tokenCount === 0) {
+      throw new Error(
+        'AI response was empty. Check provider configuration or try again.'
+      );
+    }
     console.info('Backend chat stream finished');
   } catch (error) {
     console.error('Backend proxy chat failed:', error);
