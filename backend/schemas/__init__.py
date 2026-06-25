@@ -5,6 +5,7 @@ from schemas.stock_schema import (
     ModelEnum,
     ModelMetrics,
     PredictionRecord,
+    SearchHistoryCreate,
     PredictionResult,
     SearchHistoryItem,
     StockPricePoint,
@@ -12,6 +13,10 @@ from schemas.stock_schema import (
     TrendDirection,
     WatchlistCreate,
     WatchlistItem,
+    FeedbackCreate,
+    FeedbackResponse,
+    AdminUserCountResponse,
+    AdminStatsResponse,
 )
 
 __all__ = [
@@ -25,7 +30,12 @@ __all__ = [
     "StockResponse",
     "WatchlistItem",
     "WatchlistCreate",
+    "SearchHistoryCreate",
     "SearchHistoryItem",
     "PredictionRecord",
     "HealthResponse",
+    "FeedbackCreate",
+    "FeedbackResponse",
+    "AdminUserCountResponse",
+    "AdminStatsResponse",
 ]

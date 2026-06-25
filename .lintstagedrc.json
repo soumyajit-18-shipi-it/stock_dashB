@@ -1,0 +1,20 @@
+{
+  "src/**/*.{ts,tsx,js,jsx}": [
+    "prettier --write",
+    "eslint --fix --max-warnings=0"
+  ],
+  "src/**/*.{json,css,html,md,yml,yaml}": [
+    "prettier --write"
+  ],
+  "../backend/**/*.py": [
+    "ruff check --fix",
+    "ruff format"
+  ],
+  "*.py": [
+    "ruff check --fix",
+    "ruff format"
+  ],
+  "*.{yml,yaml,json,md}": [
+    "prettier --write"
+  ]
+}

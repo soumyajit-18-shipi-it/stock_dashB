@@ -1,6 +1,8 @@
-import { useStore } from '../store/stock_store';
-import type { DateRange } from '../types';
 import { useTranslation } from 'react-i18next';
+
+import { useStore } from '../store/stock_store';
+
+import type { DateRange } from '../types';
 
 const RANGES: { value: DateRange; label: string }[] = [
   { value: '1m', label: '1M' },

@@ -1,5 +1,6 @@
 import { Star, Trash2, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 import { useWatchlist } from '../hooks/useStock';
 import { useStore } from '../store/stock_store';
 
@@ -24,7 +25,9 @@ export function WatchlistPanel() {
           <Star className="h-5 w-5 text-yellow-400" />
           <h3 className="text-lg font-semibold text-white">{t('watchlist')}</h3>
         </div>
-        <span className="text-sm text-slate-400">{t('stocksCount', { count: watchlist.length })}</span>
+        <span className="text-sm text-slate-400">
+          {t('stocksCount', { count: watchlist.length })}
+        </span>
       </div>
 
       {isLoading ? (
@@ -33,9 +36,7 @@ export function WatchlistPanel() {
           <div className="h-10 bg-slate-700 rounded" />
         </div>
       ) : watchlist.length === 0 ? (
-        <p className="text-slate-400 text-sm text-center py-4">
-          {t('noStocks')}
-        </p>
+        <p className="text-slate-400 text-sm text-center py-4">{t('noStocks')}</p>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {watchlist.map((item) => (

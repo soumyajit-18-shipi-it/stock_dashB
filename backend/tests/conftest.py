@@ -15,8 +15,19 @@ if root_dir not in sys.path:
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from backend.main import app  # noqa: E402
-from backend.database.supabase_client import get_supabase_client  # noqa: E402
+os.environ["SUPABASE_URL"] = "https://your-project-ref.supabase.co"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "your_supabase_service_role_key"
+os.environ["ADMIN_EMAILS"] = "routsoumyajit18@gmail.com,soumyajitrout24@gmail.com"
+
+from main import app  # noqa: E402
+from database.supabase_client import MockTableQuery, get_supabase_client  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_mock_supabase() -> Generator[None, None, None]:
+    for table_name in MockTableQuery._store:
+        MockTableQuery._store[table_name] = []
+    yield
 
 
 @pytest.fixture

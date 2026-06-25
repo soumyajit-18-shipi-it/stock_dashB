@@ -15,6 +15,25 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 _supabase_client: Any = None
 
 
+def is_placeholder_value(value: str, *, kind: str = "generic") -> bool:
+    cleaned = (value or "").strip().lower()
+    if not cleaned:
+        return True
+    placeholder_markers = (
+        "your_",
+        "your-",
+        "replace_me",
+        "changeme",
+        "example",
+        "placeholder",
+    )
+    if any(marker in cleaned for marker in placeholder_markers):
+        return True
+    if kind == "url" and not cleaned.startswith("https://"):
+        return True
+    return False
+
+
 class MockResponse:
     def __init__(self, data: Any) -> None:
         self.data = data
@@ -26,6 +45,8 @@ class MockTableQuery:
         "watchlists": [],
         "search_history": [],
         "predictions": [],
+        "user_profiles": [],
+        "feedback_issues": [],
     }
 
     def __init__(self, table_name: str) -> None:
@@ -34,6 +55,7 @@ class MockTableQuery:
         self._order: tuple[str, bool] | None = None
         self._limit: int | None = None
         self._inserted_data: Any = None
+        self._upserted_data: Any = None
         self._deleted: bool = False
         self._update_data: dict[str, Any] | None = None
 
@@ -56,6 +78,10 @@ class MockTableQuery:
         self._inserted_data = data
         return self
 
+    def upsert(self, data: Any, *_: Any, **__: Any) -> "MockTableQuery":
+        self._upserted_data = data
+        return self
+
     def delete(self) -> "MockTableQuery":
         self._deleted = True
         return self
@@ -69,6 +95,9 @@ class MockTableQuery:
 
         if self._inserted_data is not None:
             return MockResponse(self._handle_insert(current_time))
+
+        if self._upserted_data is not None:
+            return MockResponse(self._handle_upsert(current_time))
 
         if self._deleted:
             return MockResponse(self._handle_delete())
@@ -96,6 +125,31 @@ class MockTableQuery:
             store.append(new_item)
             new_items.append(new_item)
         return new_items
+
+    def _handle_upsert(self, current_time: str) -> list[dict[str, Any]]:
+        data_list = (
+            self._upserted_data
+            if isinstance(self._upserted_data, list)
+            else [self._upserted_data]
+        )
+        store = MockTableQuery._store[self.table_name]
+        upserted = []
+        for item in data_list:
+            item_id = item.get("id")
+            existing = next((row for row in store if item_id and row.get("id") == item_id), None)
+            if existing:
+                existing.update(item)
+                upserted.append(existing)
+            else:
+                new_item = {
+                    "id": item_id or f"mock-{self.table_name}-{len(store) + 1}",
+                    "created_at": current_time,
+                    "updated_at": current_time,
+                    **item,
+                }
+                store.append(new_item)
+                upserted.append(new_item)
+        return upserted
 
     def _handle_delete(self) -> list[dict[str, Any]]:
         matching = []
@@ -153,12 +207,8 @@ def get_supabase_client() -> Any:
             from supabase import create_client
 
             # Verify keys are valid
-            if (
-                not SUPABASE_URL
-                or "your_supabase" in SUPABASE_URL
-                or not SUPABASE_SERVICE_ROLE_KEY
-                or "your_service" in SUPABASE_SERVICE_ROLE_KEY
-                or SUPABASE_SERVICE_ROLE_KEY.startswith("sb_secret")
+            if is_placeholder_value(SUPABASE_URL, kind="url") or is_placeholder_value(
+                SUPABASE_SERVICE_ROLE_KEY, kind="service_role"
             ):
                 logger.warning(
                     "Supabase URL or Key is missing or placeholder. "
@@ -166,7 +216,7 @@ def get_supabase_client() -> Any:
                 )
                 _supabase_client = MockSupabaseClient()
             else:
-                _supabase_client = create_client(  # type: ignore[attr-defined]
+                _supabase_client = create_client(
                     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
                 )
         except Exception:  # pylint: disable=broad-exception-caught

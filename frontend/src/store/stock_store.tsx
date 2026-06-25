@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import type { AppState } from '../types';
 
 export const useStockStore = create<AppState>((set) => ({
@@ -17,14 +18,18 @@ export const useStockStore = create<AppState>((set) => ({
   setModel: (model) => set({ model }),
   setStockData: (stockData) => set({ stockData }),
   setWatchlist: (watchlist) => set({ watchlist }),
-  addToWatchlist: (item) => set((state) => ({
-    watchlist: state.watchlist.some((entry) => entry.ticker === item.ticker)
-      ? state.watchlist.map((entry) => entry.ticker === item.ticker ? { ...entry, ...item } : entry)
-      : [...state.watchlist, item],
-  })),
-  removeFromWatchlist: (id) => set((state) => ({
-    watchlist: state.watchlist.filter((item) => item.id !== id && item.ticker !== id),
-  })),
+  addToWatchlist: (item) =>
+    set((state) => ({
+      watchlist: state.watchlist.some((entry) => entry.ticker === item.ticker)
+        ? state.watchlist.map((entry) =>
+            entry.ticker === item.ticker ? { ...entry, ...item } : entry
+          )
+        : [...state.watchlist, item],
+    })),
+  removeFromWatchlist: (id) =>
+    set((state) => ({
+      watchlist: state.watchlist.filter((item) => item.id !== id && item.ticker !== id),
+    })),
   setSearchHistory: (searchHistory) => set({ searchHistory }),
   setPredictions: (predictions) => set({ predictions }),
   setLoading: (isLoading) => set({ isLoading }),

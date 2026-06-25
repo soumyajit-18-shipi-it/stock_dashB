@@ -1,0 +1,10 @@
+dist
+dist-ssr
+node_modules
+coverage
+.eslintcache
+.tsbuildinfo
+*.tsbuildinfo
+playwright-report
+test-results
+.vite

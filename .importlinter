@@ -1,0 +1,33 @@
+[importlinter]
+root_package = backend
+include_external_packages = False
+
+[importlinter:contract:no-circular-dependencies]
+type = independence
+modules =
+    backend.api
+    backend.services
+    backend.features
+    backend.ml
+    backend.data
+    backend.database
+    backend.schemas
+    backend.core
+    backend.models
+    backend.tests
+severity = error
+
+[importlinter:contract:layered-architecture]
+type = layers
+layers =
+    backend.api
+    backend.services
+    backend.features
+    backend.ml
+    backend.data
+    backend.database
+    backend.schemas
+    backend.core
+    backend.models
+containers = backend
+severity = error

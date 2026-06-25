@@ -1,8 +1,9 @@
-import { useState } from 'react';
 import { Search, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStore } from '../store/stock_store';
+
 import { useSearchHistory } from '../hooks/useStock';
+import { useStore } from '../store/stock_store';
 
 export function SearchBar() {
   const { setTicker, isLoading } = useStore();
@@ -64,7 +65,9 @@ export function SearchBar() {
 
       {showHistory && history.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="p-2 text-xs text-slate-400 border-b border-slate-700">{t('recentSearches')}</div>
+          <div className="p-2 text-xs text-slate-400 border-b border-slate-700">
+            {t('recentSearches')}
+          </div>
           {history.slice(0, 5).map((item) => (
             <button
               key={item.id}

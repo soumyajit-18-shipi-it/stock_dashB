@@ -1,7 +1,9 @@
 import { TrendingUp, TrendingDown, Brain } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { PredictionResult, ModelMetrics, StockResponse } from '../types';
+
 import { currencyForStock, formatCurrency } from '../utils/format';
+
+import type { PredictionResult, ModelMetrics, StockResponse } from '../types';
 
 interface PredictionCardProps {
   prediction: PredictionResult;
@@ -52,7 +54,12 @@ export function PredictionCard({ prediction, metrics, stockData }: PredictionCar
       </div>
 
       <div className="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-700">
-        <span>{t('modelLabel')}: <span className="text-slate-300">{prediction.model_used === 'rf' ? t('randomForest') : t('linear')}</span></span>
+        <span>
+          {t('modelLabel')}:{' '}
+          <span className="text-slate-300">
+            {prediction.model_used === 'rf' ? t('randomForest') : t('linear')}
+          </span>
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">

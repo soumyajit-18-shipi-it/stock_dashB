@@ -45,6 +45,8 @@ class CompanyProfile(BaseModel):
     country: str | None = None
     week_52_high: float | None = None
     week_52_low: float | None = None
+    logo: str | None = None
+    website: str | None = None
 
 
 class PredictionResult(BaseModel):
@@ -73,22 +75,31 @@ class WatchlistItem(BaseModel):
     id: str | None = None
     ticker: str
     name: str | None = None
+    company_name: str | None = None
     created_at: datetime | None = None
 
 
 class WatchlistCreate(BaseModel):
     ticker: str
     name: str | None = None
+    company_name: str | None = None
 
 
 class SearchHistoryItem(BaseModel):
     id: str | None = None
+    query: str | None = None
     ticker: str
     searched_at: datetime | None = None
 
 
+class SearchHistoryCreate(BaseModel):
+    query: str
+    ticker: str | None = None
+
+
 class PredictionRecord(BaseModel):
     id: str | None = None
+    user_id: str | None = None
     ticker: str
     model: str
     predicted_price: float
@@ -100,3 +111,42 @@ class PredictionRecord(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str = "1.0.0"
+
+
+class FeedbackCreate(BaseModel):
+    category: str
+    title: str
+    description: str
+    page_url: str | None = None
+    screenshot_url: str | None = None
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+    user_id: str | None = None
+    email: str | None = None
+    category: str
+    title: str
+    description: str
+    page_url: str | None = None
+    screenshot_url: str | None = None
+    status: str
+    priority: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminUserCountResponse(BaseModel):
+    total_users: int
+    new_users_today: int
+    new_users_this_week: int
+    last_updated: datetime
+
+
+class AdminStatsResponse(BaseModel):
+    total_users: int
+    new_users_today: int
+    new_users_this_week: int
+    total_feedback_issues: int
+    open_feedback_issues: int
+    last_updated: datetime

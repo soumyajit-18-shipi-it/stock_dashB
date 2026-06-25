@@ -1,7 +1,9 @@
-import Plot from 'react-plotly.js';
 import { useTranslation } from 'react-i18next';
-import type { StockPricePoint } from '../types';
+
+import { LazyPlot } from './LazyPlot';
 import { useUIStore } from '../store/ui_store';
+
+import type { StockPricePoint } from '../types';
 
 interface VolumeChartProps {
   data: StockPricePoint[];
@@ -11,8 +13,22 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const { t } = useTranslation();
   const { darkMode } = useUIStore();
   const chartTheme = darkMode
-    ? { paper: 'transparent', plot: 'transparent', font: '#94a3b8', title: '#f1f5f9', grid: '#334155', line: '#475569' }
-    : { paper: '#ffffff', plot: '#ffffff', font: '#475569', title: '#0f172a', grid: '#e2e8f0', line: '#cbd5e1' };
+    ? {
+        paper: 'transparent',
+        plot: 'transparent',
+        font: '#94a3b8',
+        title: '#f1f5f9',
+        grid: '#334155',
+        line: '#475569',
+      }
+    : {
+        paper: '#ffffff',
+        plot: '#ffffff',
+        font: '#475569',
+        title: '#0f172a',
+        grid: '#e2e8f0',
+        line: '#cbd5e1',
+      };
 
   if (!data || data.length === 0) {
     return (
@@ -26,7 +42,10 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const volumes = data.map((d) => d.volume);
   const colors = volumes.map((_, i) => {
     if (i === 0) return '#3b82f6';
-    return volumes[i] >= volumes[i - 1] ? '#10b981' : '#ef4444';
+    const current = volumes[i];
+    const prev = volumes[i - 1];
+    if (current === undefined || prev === undefined) return '#3b82f6';
+    return current >= prev ? '#10b981' : '#ef4444';
   });
 
   const trace: Plotly.Data = {
@@ -70,7 +89,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
 
   return (
     <div className="w-full h-48 bg-slate-800/30 rounded-xl border border-slate-700 p-4">
-      <Plot data={[trace]} layout={layout} config={config} className="w-full h-full" />
+      <LazyPlot data={[trace]} layout={layout} config={config} className="w-full h-full" />
     </div>
   );
 }

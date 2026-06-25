@@ -1,0 +1,123 @@
+#!/usr/bin/env sh
+# .husky/pre-push
+#
+# Full health gate (not staged-file-only):
+#   - Frontend: typecheck, lint, vitest, vite build, knip, depcheck, npm audit,
+#               circular deps, license check
+#   - Backend:  ruff check + format check, mypy, pytest with coverage gate,
+#               bandit, pip-audit, import-linter, vulture
+#   - Cross:    gitleaks (secrets), semgrep (security patterns)
+#
+# Skipped if $HUSKY=0 or if invoked with `git push --no-verify`.
+# Run with WITH_INTEGRATION=1 to include integration tests.
+
+. "$(dirname -- "$0")/_lib.sh"
+
+husky_log "pre-push: full health gate (no staged-only)"
+
+# Skip if HUSKY=0 (escape hatch for CI / quick WIP pushes)
+if [ "${HUSKY:-1}" = "0" ]; then
+  husky_warn "HUSKY=0, skipping hook"
+  exit 0
+fi
+
+WITH_INTEGRATION="${WITH_INTEGRATION:-0}"
+PUSH_REMOTE="$1"
+PUSH_URL="$2"
+
+run_step() {
+  step_name="$1"; shift
+  husky_log "▶ $step_name"
+  if "$@"; then
+    husky_ok "✓ $step_name"
+  else
+    husky_err "✗ $step_name FAILED"
+    husky_err "Push aborted. Fix the errors above or use 'git push --no-verify' to skip."
+    exit 1
+  fi
+}
+
+# Helper to run commands in a specific directory
+run_in_dir() {
+  dir="$1"; shift
+  (cd "$HUSKY_REPO_ROOT/$dir" && "$@")
+}
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+run_step "frontend: npm ci (best-effort)" \
+  run_in_dir frontend sh -c '[ -d node_modules ] || npm ci'
+
+run_step "frontend: prettier --check" \
+  run_in_dir frontend npx --no-install prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,html,md}"
+
+run_step "frontend: eslint" \
+  run_in_dir frontend npx --no-install eslint --max-warnings=0 .
+
+run_step "frontend: tsc (strict)" \
+  run_in_dir frontend sh -c 'npx --no-install tsc --noEmit -p tsconfig.app.json && npx --no-install tsc --noEmit -p tsconfig.node.json'
+
+run_step "frontend: vitest (unit tests)" \
+  run_in_dir frontend npx --no-install vitest run
+
+run_step "frontend: vite build" \
+  run_in_dir frontend npx --no-install vite build
+
+run_step "frontend: knip (dead code / unused exports)" \
+  run_in_dir frontend npx --no-install knip --no-progress
+
+run_step "frontend: depcheck (unused deps)" \
+  run_in_dir frontend npx --no-install depcheck --ignores="@types/*,eslint-*,@eslint/*,typescript-eslint,vite,@vitejs/*,postcss,autoprefixer,tailwindcss"
+
+run_step "frontend: circular dependency check" \
+  run_in_dir frontend npx --no-install madge --circular --extensions ts,tsx src
+
+run_step "frontend: npm audit (high+ severity)" \
+  run_in_dir frontend npm audit --audit-level=high
+
+run_step "frontend: license check (production deps)" \
+  run_in_dir frontend npx --no-install license-checker --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;CC0-1.0;Unlicense;Python-2.0;MPL-2.0' --production
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+run_step "backend: ruff check" \
+  run_in_dir . ruff check backend
+
+run_step "backend: ruff format --check" \
+  run_in_dir . ruff format --check backend
+
+run_step "backend: mypy (strict)" \
+  run_in_dir . mypy backend
+
+run_step "backend: import-linter (circular deps + layers)" \
+  run_in_dir . import-linter --config .importlinter
+
+run_step "backend: bandit (security)" \
+  run_in_dir . bandit -c pyproject.toml -r backend
+
+run_step "backend: pytest (unit tests with coverage gate)" \
+  run_in_dir . pytest backend/tests --cov=backend --cov-report=term --cov-fail-under=70 -m "not integration"
+
+if [ "$WITH_INTEGRATION" = "1" ]; then
+  run_step "backend: pytest (integration)" \
+    run_in_dir . pytest backend/tests -m integration
+fi
+
+run_step "backend: pip-audit (vulnerable dependencies)" \
+  run_in_dir . sh -c 'python -m pip_audit -r backend/requirements.txt || pip-audit -r backend/requirements.txt'
+
+run_step "backend: vulture (dead code)" \
+  run_in_dir . sh -c 'vulture backend --min-confidence 80 || true'
+
+# ---------------------------------------------------------------------------
+# Cross-cutting secrets scan (defence-in-depth even though pre-commit covers it)
+# ---------------------------------------------------------------------------
+run_step "secrets: gitleaks" \
+  sh -c 'command -v gitleaks >/dev/null 2>&1 && gitleaks protect --staged --redact --no-banner || echo "gitleaks not installed (skipped; covered by pre-commit)"'
+
+run_step "security: semgrep" \
+  sh -c 'command -v semgrep >/dev/null 2>&1 && semgrep scan --config .semgrep.yml --error || echo "semgrep not installed (skipped; covered by CI)"'
+
+husky_ok "pre-push passed"

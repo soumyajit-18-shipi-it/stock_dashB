@@ -24,15 +24,26 @@ export interface CompanyProfile {
 
 export interface StockPrediction {
   predicted_price: number;
-  trend: "increase" | "decrease";
+  trend: 'increase' | 'decrease';
   confidence: number;
   model_used: string;
+}
+
+export interface StockPricePoint {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  ma7?: number;
+  ma21?: number;
 }
 
 export interface StockResponse {
   ticker: string;
   profile: CompanyProfile;
-  history: any[];
+  history: StockPricePoint[];
   prediction: StockPrediction;
   metrics?: {
     rmse: number;

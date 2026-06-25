@@ -1,0 +1,31 @@
+# Development dependencies for backend
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+
+# Linting & Formatting
+ruff==0.6.9
+
+# Type checking
+mypy==1.11.2
+types-requests==2.32.0
+
+# Security
+bandit==1.7.9
+pip-audit==2.8.0
+semgrep==1.120.0
+
+# Dead code detection
+vulture==2.10
+
+# Import/architecture linting
+import-linter==2.3.0
+
+# Pre-commit hooks
+pre-commit==3.8.0
+
+# Type stubs for external packages
+# Add more as needed

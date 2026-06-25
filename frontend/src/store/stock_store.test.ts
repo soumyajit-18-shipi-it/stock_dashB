@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { useStore } from '../store/stock_store';
+
+import { useStore } from './stock_store';
 
 describe('Stock Store', () => {
   it('should have initial state', () => {
@@ -35,7 +36,7 @@ describe('Stock Store', () => {
     const { addToWatchlist } = useStore.getState();
     addToWatchlist({ ticker: 'GOOGL', name: 'Alphabet Inc.' });
     expect(useStore.getState().watchlist).toHaveLength(1);
-    expect(useStore.getState().watchlist[0].ticker).toBe('GOOGL');
+    expect(useStore.getState().watchlist[0]?.ticker).toBe('GOOGL');
   });
 
   it('should remove from watchlist', () => {
@@ -45,7 +46,7 @@ describe('Stock Store', () => {
     addToWatchlist({ id: '2', ticker: 'NVDA' });
     removeFromWatchlist('1');
     expect(useStore.getState().watchlist).toHaveLength(1);
-    expect(useStore.getState().watchlist[0].ticker).toBe('NVDA');
+    expect(useStore.getState().watchlist[0]?.ticker).toBe('NVDA');
   });
 
   it('should set loading state', () => {

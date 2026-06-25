@@ -1,10 +1,11 @@
+from typing import cast, Dict, List, Tuple
 import os
-from typing import cast
 
 import joblib
 import numpy as np
 import pandas as pd
 from ml.base_model import BaseModel
+from ml.data_cleaning import sanitize_features, validate_training_matrix
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
@@ -25,7 +26,7 @@ class RandomForestModel(BaseModel):
     which indicators drove the prediction.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("random_forest")
         self.model = RandomForestRegressor(
             n_estimators=200,
@@ -36,17 +37,18 @@ class RandomForestModel(BaseModel):
             random_state=42,
             n_jobs=-1,
         )
-        self.feature_importances_: dict = {}
-        self.feature_names_: list = []
+        self.feature_importances_: Dict[str, float] = {}
+        self.feature_names_: List[str] = []
 
     # ------------------------------------------------------------------ #
     # Training                                                             #
     # ------------------------------------------------------------------ #
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
-        self.feature_names_ = list(X.columns) if isinstance(X, pd.DataFrame) else []
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        y_arr = y.values if isinstance(y, pd.Series) else y
+        X_clean, y_clean = validate_training_matrix(X, y)
+        self.feature_names_ = list(X_clean.columns)
+        X_arr = X_clean.values
+        y_arr = y_clean.values
 
         X_train, X_test, y_train, y_test = train_test_split(
             X_arr, y_arr, test_size=0.2, shuffle=False
@@ -66,7 +68,7 @@ class RandomForestModel(BaseModel):
             for k, v in sorted(paired, key=lambda x: x[1], reverse=True)
         }
 
-    def get_top_features(self, n: int = 5) -> dict:
+    def get_top_features(self, n: int = 5) -> Dict[str, float]:
         """Return the n most important features and their importance scores."""
         items = list(self.feature_importances_.items())
         return dict(items[:n])
@@ -78,12 +80,12 @@ class RandomForestModel(BaseModel):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained():
             raise ValueError("RandomForestModel has not been trained yet.")
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
-        return self.model.predict(X_arr)
+        X_arr = sanitize_features(X).values
+        return cast(np.ndarray, self.model.predict(X_arr))
 
     def predict_interval(
-        self, X: pd.DataFrame, percentiles: tuple = (10, 90)
-    ) -> tuple[np.ndarray, np.ndarray]:
+        self, X: pd.DataFrame, percentiles: Tuple[int, int] = (10, 90)
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Return a prediction interval from individual tree outputs.
 
@@ -96,7 +98,7 @@ class RandomForestModel(BaseModel):
         """
         if not self.is_trained():
             raise ValueError("RandomForestModel has not been trained yet.")
-        X_arr = X.values if isinstance(X, pd.DataFrame) else X
+        X_arr = sanitize_features(X).values
         tree_preds = np.array([t.predict(X_arr) for t in self.model.estimators_])
         lower = np.percentile(tree_preds, percentiles[0], axis=0)
         upper = np.percentile(tree_preds, percentiles[1], axis=0)
@@ -133,8 +135,5 @@ class RandomForestModel(BaseModel):
     # ------------------------------------------------------------------ #
 
     def is_trained(self) -> bool:
-        return (
-            self.model is not None
-            and hasattr(self.model, "estimators_")
-            and len(self.model.estimators_) > 0
-        )
+        estimators = getattr(self.model, "estimators_", None)
+        return estimators is not None and len(estimators) > 0

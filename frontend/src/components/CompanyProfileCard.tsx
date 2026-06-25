@@ -1,7 +1,9 @@
 import { Building2, Globe, DollarSign, Activity, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { CompanyProfile } from '../types';
+
 import { formatCompactCurrency, formatCurrency } from '../utils/format';
+
+import type { CompanyProfile } from '../types';
 
 interface CompanyProfileCardProps {
   profile: CompanyProfile;
@@ -9,7 +11,7 @@ interface CompanyProfileCardProps {
 
 export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
   const { t } = useTranslation();
-  const currency = profile.currency || (profile.ticker.endsWith('.NS') ? 'INR' : 'USD');
+  const currency = profile.currency || (profile.ticker.endsWith('.NS') || profile.ticker.endsWith('.BO') ? 'INR' : 'USD');
 
   return (
     <div className="glass rounded-xl border border-slate-700 p-6">
@@ -28,13 +30,17 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
         <div className="bg-slate-700/50 rounded-lg p-3">
           <p className="text-slate-400 text-xs mb-1">{t('currentPrice')}</p>
           <p className="text-xl font-bold text-white">
-            {profile.current_price ? formatCurrency(profile.current_price, currency) : t('notAvailable')}
+            {profile.current_price
+              ? formatCurrency(profile.current_price, currency)
+              : t('notAvailable')}
           </p>
         </div>
         <div className="bg-slate-700/50 rounded-lg p-3">
           <p className="text-slate-400 text-xs mb-1">{t('previousClose')}</p>
           <p className="text-xl font-bold text-white">
-            {profile.previous_close ? formatCurrency(profile.previous_close, currency) : t('notAvailable')}
+            {profile.previous_close
+              ? formatCurrency(profile.previous_close, currency)
+              : t('notAvailable')}
           </p>
         </div>
       </div>
@@ -58,7 +64,11 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
           <DollarSign className="h-4 w-4 text-slate-400" />
           <div>
             <span className="text-slate-400">{t('marketCap')}</span>{' '}
-            <span className="text-white">{profile.market_cap ? formatCompactCurrency(profile.market_cap, currency) : t('notAvailable')}</span>
+            <span className="text-white">
+              {profile.market_cap
+                ? formatCompactCurrency(profile.market_cap, currency)
+                : t('notAvailable')}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -66,7 +76,11 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
           <div>
             <span className="text-slate-400">{t('exchange')}</span>{' '}
             <span className="text-white">{profile.exchange || t('notAvailable')}</span>
-            {profile.currency ? <span className="text-slate-400"> ({profile.currency})</span> : <span className="text-slate-400"> ({t('notAvailable')})</span>}
+            {profile.currency ? (
+              <span className="text-slate-400"> ({profile.currency})</span>
+            ) : (
+              <span className="text-slate-400"> ({t('notAvailable')})</span>
+            )}
           </div>
         </div>
         {profile.country && (
@@ -84,13 +98,17 @@ export function CompanyProfileCard({ profile }: CompanyProfileCardProps) {
         <div>
           <p className="text-slate-400 text-xs">{t('high52')}</p>
           <p className="text-emerald-400 font-semibold">
-            {profile.week_52_high ? formatCurrency(profile.week_52_high, currency) : t('notAvailable')}
+            {profile.week_52_high
+              ? formatCurrency(profile.week_52_high, currency)
+              : t('notAvailable')}
           </p>
         </div>
         <div>
           <p className="text-slate-400 text-xs">{t('low52')}</p>
           <p className="text-red-400 font-semibold">
-            {profile.week_52_low ? formatCurrency(profile.week_52_low, currency) : t('notAvailable')}
+            {profile.week_52_low
+              ? formatCurrency(profile.week_52_low, currency)
+              : t('notAvailable')}
           </p>
         </div>
       </div>

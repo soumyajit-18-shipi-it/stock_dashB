@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from features.technical_indicators import TechnicalIndicators
 
@@ -16,6 +17,7 @@ class FeatureEngineer:
         df["lag4"] = df["Close"].shift(4)
         df["lag5"] = df["Close"].shift(5)
         df["volume_change"] = df["Volume"].pct_change()
+        df = df.replace([np.inf, -np.inf], np.nan)
         df = df.dropna()
         return df
 

@@ -1,6 +1,7 @@
+import { currencyForStock, formatCurrency } from '../utils/format';
+
 import type { AIProviderConfig } from '../store/ui_store';
 import type { StockResponse } from '../types';
-import { currencyForStock, formatCurrency } from '../utils/format';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -13,12 +14,19 @@ export interface ModelOption {
 }
 
 const REQUEST_TIMEOUT_MS = 60000; // Increased to 60s as per user request
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL =
+  VITE_API_URL && VITE_API_URL !== '/api/v1'
+    ? VITE_API_URL
+    : typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000/api/v1'
+    : '/api/v1';
 
 export function isAIConfigured(config: AIProviderConfig): boolean {
   if (config.provider === 'ollama') return true; // Ollama has a default local URL
   if (config.provider === 'auto') return true; // Auto can fallback to backend
-  return Boolean(config.apiKey || config.provider === 'auto' || config.provider === 'ollama');
+  return Boolean(config.apiKey);
 }
 
 export function providerLabelKey(provider: AiProvider) {
@@ -35,7 +43,7 @@ function withTimeout(signal?: AbortSignal | null, timeoutMs = REQUEST_TIMEOUT_MS
   const timeout = setTimeout(() => {
     controller.abort(new Error('AbortError'));
   }, timeoutMs);
-  
+
   if (signal) {
     signal.addEventListener('abort', () => {
       clearTimeout(timeout);
@@ -59,7 +67,8 @@ async function checkedFetch(input: string, init: RequestInit = {}, timeoutMs = R
       throw new Error(readableProviderError(response.status, text));
     }
     return response;
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     if (error.name === 'AbortError' || error.message === 'AbortError') {
       throw new Error('Request timed out after 60 seconds');
     }
@@ -86,7 +95,7 @@ function readableProviderError(status: number, body: string) {
   if (status === 401 || status === 403) return 'Invalid API key or unauthorized access.';
   if (status === 429) return 'Rate limit exceeded. Try again later.';
   if (status >= 500) return `Backend error (${status}). The AI service might be down.`;
-  
+
   return parsedMsg || `Request failed with status ${status}`;
 }
 
@@ -94,18 +103,29 @@ function normalizeBaseUrl(baseUrl = '') {
   return baseUrl.replace(/\/$/, '');
 }
 
+interface RawModelItem {
+  id?: string;
+  name?: string;
+  model?: string;
+  display_name?: string;
+}
+
 function normalizeModelList(data: unknown): ModelOption[] {
-  const raw = Array.isArray((data as any)?.data)
-    ? (data as any).data
-    : Array.isArray((data as any)?.models)
-      ? (data as any).models
-      : Array.isArray(data)
-        ? data as unknown[]
-        : [];
-  return raw.map((item: any) => {
-    const id = item.id || item.name || item.model || '';
-    return { id, name: item.display_name || item.name || item.model || id };
-  }).filter((model) => model.id);
+  const record = data as Record<string, unknown> | null | undefined;
+  const raw =
+    record && Array.isArray(record.data)
+      ? (record.data as RawModelItem[])
+      : record && Array.isArray(record.models)
+        ? (record.models as RawModelItem[])
+        : Array.isArray(data)
+          ? (data as RawModelItem[])
+          : [];
+  return raw
+    .map((item) => {
+      const id = item.id || item.name || item.model || '';
+      return { id, name: item.display_name || item.name || item.model || id };
+    })
+    .filter((model: ModelOption) => model.id);
 }
 
 export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'custom' | 'auto';
@@ -117,28 +137,36 @@ export interface ProviderMeta {
 
 export function detectProviderFromKey(apiKey: string): ProviderMeta {
   if (!apiKey) return { provider: 'auto' };
-  
+
   if (apiKey.startsWith('sk-ant-')) return { provider: 'anthropic' };
   if (apiKey.startsWith('AIza')) return { provider: 'gemini' };
-  if (apiKey.startsWith('gsk_')) return { provider: 'openai', baseUrl: 'https://api.groq.com/openai/v1' };
-  if (apiKey.startsWith('sk-or-v1-')) return { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1' };
-  
+  if (apiKey.startsWith('gsk_'))
+    return { provider: 'openai', baseUrl: 'https://api.groq.com/openai/v1' };
+  if (apiKey.startsWith('sk-or-v1-'))
+    return { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1' };
+
   return { provider: 'openai', baseUrl: 'https://api.openai.com/v1' };
 }
 
-export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal): Promise<ModelOption[]> {
-  const meta = config.provider === 'auto' ? detectProviderFromKey(config.apiKey || '') : { provider: config.provider, baseUrl: config.baseUrl };
+export async function fetchModels(
+  config: AIProviderConfig,
+  signal?: AbortSignal
+): Promise<ModelOption[]> {
+  const meta =
+    config.provider === 'auto'
+      ? detectProviderFromKey(config.apiKey || '')
+      : { provider: config.provider, baseUrl: config.baseUrl };
   const provider = meta.provider;
   const baseUrl = normalizeBaseUrl(meta.baseUrl || config.baseUrl || '');
 
-  console.log(`Fetching models for provider: ${provider}, baseUrl: ${baseUrl}`);
+  console.info(`Fetching models for provider: ${provider}, baseUrl: ${baseUrl}`);
 
   // For Local Ollama, try direct first
   if (provider === 'ollama' && !baseUrl) {
     try {
       const response = await checkedFetch('http://localhost:11434/api/tags', { signal }, 5000);
       return normalizeModelList(await response.json());
-    } catch (error) {
+    } catch {
       console.warn('Ollama direct fetch failed, trying backend proxy');
     }
   }
@@ -151,7 +179,7 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
     if (baseUrl) params.append('base_url', baseUrl);
 
     const url = `${API_BASE_URL}/ai/models?${params.toString()}`;
-    console.log(`Backend model fetch: ${url}`);
+    console.info(`Backend model fetch: ${url}`);
     const response = await checkedFetch(url, { signal });
     return await response.json();
   } catch (error) {
@@ -164,17 +192,34 @@ export async function fetchModels(config: AIProviderConfig, signal?: AbortSignal
   }
 }
 
-
 export function selectBestModel(_provider: AiProvider, models: ModelOption[]) {
-  const priorities = ['gpt-4o', 'gpt-4', 'claude-3-5-sonnet', 'claude-3', 'gemini-1.5-pro', 'gemini-1.5-flash', 'llama-3.3-70b', 'llama-3.1-70b', 'llama-3', 'llama3', 'mixtral', 'gemma', 'qwen', 'mistral'];
+  const priorities = [
+    'gpt-4o',
+    'gpt-4',
+    'claude-3-5-sonnet',
+    'claude-3',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash',
+    'llama-3.3-70b',
+    'llama-3.1-70b',
+    'llama-3',
+    'llama3',
+    'mixtral',
+    'gemma',
+    'qwen',
+    'mistral',
+  ];
   for (const p of priorities) {
-    const found = models.find(m => m.id.toLowerCase().includes(p));
+    const found = models.find((m) => m.id.toLowerCase().includes(p));
     if (found) return found;
   }
   return models[0];
 }
 
-export async function detectAndApplyModel(config: AIProviderConfig, signal?: AbortSignal): Promise<AIProviderConfig> {
+export async function detectAndApplyModel(
+  config: AIProviderConfig,
+  signal?: AbortSignal
+): Promise<AIProviderConfig> {
   const models = await fetchModels(config, signal);
   const selected = selectBestModel(config.provider, models);
   return { ...config, selectedModel: selected?.id || config.selectedModel || '' };
@@ -211,8 +256,10 @@ function buildSystemPrompt(stock: StockResponse, language: string): string {
 }
 
 async function parseSseStream(response: Response, onEvent: (data: string) => void) {
-  const reader = response.body?.getReader();
-  if (!reader) return;
+  if (!response.body) {
+    throw new Error(`AI stream response has no body (status ${response.status})`);
+  }
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   while (true) {
@@ -222,7 +269,7 @@ async function parseSseStream(response: Response, onEvent: (data: string) => voi
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
     for (const line of lines) {
-      const trimmed = line.trim();
+      const trimmed = line.replace(/\r$/, '').trim();
       if (!trimmed || !trimmed.startsWith('data:')) continue;
       const data = trimmed.slice(5).trim();
       if (data === '[DONE]') return;
@@ -231,19 +278,44 @@ async function parseSseStream(response: Response, onEvent: (data: string) => voi
   }
 }
 
-async function parseOpenAIStream(response: Response, onToken: (token: string) => void) {
+async function parseOpenAIStream(
+  response: Response,
+  onToken: (token: string) => void,
+): Promise<{ tokenCount: number; error: string }> {
+  let tokenCount = 0;
+  let streamError = '';
   await parseSseStream(response, (data) => {
+    let json: {
+      error?: unknown;
+      choices?: { delta?: { content?: string } }[];
+      delta?: { text?: string };
+    };
     try {
-      const json = JSON.parse(data);
-      const token = json.choices?.[0]?.delta?.content || json.delta?.text || '';
-      if (token) onToken(token);
-    } catch { /* Ignore */ }
+      json = JSON.parse(data);
+    } catch {
+      if (data.includes('AI provider is not configured')) {
+        streamError = 'AI provider is not configured. Please set DEFAULT_GROQ_API_KEY or configure Ollama.';
+      }
+      return;
+    }
+    if (json.error) {
+      streamError = String(json.error);
+      return;
+    }
+    const token = json.choices?.[0]?.delta?.content || json.delta?.text || '';
+    if (token) {
+      tokenCount += 1;
+      onToken(token);
+    }
   });
+  return { tokenCount, error: streamError };
 }
 
 async function parseJsonLineStream(response: Response, onToken: (token: string) => void) {
-  const reader = response.body?.getReader();
-  if (!reader) return;
+  if (!response.body) {
+    throw new Error(`AI stream response has no body (status ${response.status})`);
+  }
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   while (true) {
@@ -258,67 +330,105 @@ async function parseJsonLineStream(response: Response, onToken: (token: string) 
         const json = JSON.parse(line);
         const token = json.message?.content || json.response || '';
         if (token) onToken(token);
-      } catch { /* Ignore */ }
+      } catch {
+        /* Ignore */
+      }
     }
   }
 }
 
-export async function streamChat(config: AIProviderConfig, messages: ChatMessage[], signal: AbortSignal, onToken: (token: string) => void) {
-  const meta = config.provider === 'auto' ? detectProviderFromKey(config.apiKey || '') : { provider: config.provider, baseUrl: config.baseUrl };
+export async function streamChat(
+  config: AIProviderConfig,
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  onToken: (token: string) => void
+) {
+  const meta =
+    config.provider === 'auto'
+      ? detectProviderFromKey(config.apiKey || '')
+      : { provider: config.provider, baseUrl: config.baseUrl };
   const provider = meta.provider;
   const baseUrl = normalizeBaseUrl(meta.baseUrl || config.baseUrl || '');
 
-  console.log(`Starting streamChat: provider=${provider}, model=${config.selectedModel}`);
+  console.info(`Starting streamChat: provider=${provider}, model=${config.selectedModel}`);
 
   // Local Ollama: Try direct first
   if (provider === 'ollama' && !config.baseUrl) {
     try {
-      const response = await checkedFetch('http://localhost:11434/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.selectedModel || 'llama3', messages, stream: true }),
-        signal,
-      }, REQUEST_TIMEOUT_MS);
+      const response = await checkedFetch(
+        'http://localhost:11434/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: config.selectedModel || 'llama3', messages, stream: true }),
+          signal,
+        },
+        REQUEST_TIMEOUT_MS
+      );
       await parseJsonLineStream(response, onToken);
-      console.log('Ollama direct stream finished');
+      console.info('Ollama direct stream finished');
       return;
-    } catch (error) {
-      console.warn('Ollama direct chat failed, falling back to backend');
+    } catch (ollamaErr) {
+      console.warn('Ollama direct chat failed, falling back to backend:', ollamaErr);
     }
   }
 
   // Use backend proxy
   try {
     const url = `${API_BASE_URL}/ai/chat`;
-    console.log(`Backend chat stream: ${url}`);
-    const response = await checkedFetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        provider,
-        model: config.selectedModel,
-        api_key: config.apiKey,
-        base_url: baseUrl,
-        stream: true
-      }),
-      signal,
-    }, REQUEST_TIMEOUT_MS);
-    
-    await parseOpenAIStream(response, onToken);
-    console.log('Backend chat stream finished');
+    console.info(`Backend chat stream: ${url}`);
+    const response = await checkedFetch(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
+          provider,
+          model: config.selectedModel,
+          api_key: config.apiKey,
+          base_url: baseUrl,
+          stream: true,
+        }),
+        signal,
+      },
+      REQUEST_TIMEOUT_MS
+    );
+
+    const { tokenCount, error: streamError } = await parseOpenAIStream(response, onToken);
+    if (streamError) {
+      throw new Error(streamError);
+    }
+    if (tokenCount === 0) {
+      throw new Error(
+        'AI response was empty. Check provider configuration or try again.'
+      );
+    }
+    console.info('Backend chat stream finished');
   } catch (error) {
     console.error('Backend proxy chat failed:', error);
     throw error;
   }
 }
 
-
-export function buildChatMessages(stock: StockResponse, language: string, userMessages: ChatMessage[]) {
-  return [{ role: 'system' as const, content: buildSystemPrompt(stock, language) }, ...userMessages];
+export function buildChatMessages(
+  stock: StockResponse,
+  language: string,
+  userMessages: ChatMessage[]
+) {
+  return [
+    { role: 'system' as const, content: buildSystemPrompt(stock, language) },
+    ...userMessages,
+  ];
 }
 
-export async function generateReport(config: AIProviderConfig, stock: StockResponse, language: string, signal: AbortSignal, onToken: (token: string) => void) {
+export async function generateReport(
+  config: AIProviderConfig,
+  stock: StockResponse,
+  language: string,
+  signal: AbortSignal,
+  onToken: (token: string) => void
+) {
   const reportPrompt = [
     'Generate a PROFESSIONAL EQUITY RESEARCH REPORT. Do not use placeholders like "Not Available".',
     'Use the provided data to generate meaningful insights even if some metrics are missing.',
@@ -362,15 +472,13 @@ export async function generateReport(config: AIProviderConfig, stock: StockRespo
     'Constraint: Ensure every section is populated with at least 150 words of high-quality analysis.',
   ].join('\n');
 
-  await streamChat(config, [
-    { role: 'system', content: buildSystemPrompt(stock, language) },
-    { role: 'user', content: reportPrompt },
-  ], signal, onToken);
+  await streamChat(
+    config,
+    [
+      { role: 'system', content: buildSystemPrompt(stock, language) },
+      { role: 'user', content: reportPrompt },
+    ],
+    signal,
+    onToken
+  );
 }
-
-
-
-
-
-
-

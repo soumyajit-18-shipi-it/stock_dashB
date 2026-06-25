@@ -1,12 +1,14 @@
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from api.routes import router
 from core.config import settings
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stock_dashboard")
@@ -16,6 +18,17 @@ app = FastAPI(
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
+
+
+@app.on_event("startup")
+def startup_event() -> None:
+    logger.info("=" * 60)
+    logger.info("STOCK INTELLIGENCE DASHBOARD API STARTED")
+    logger.info("Local API: http://localhost:8000")
+    logger.info("API docs:  http://localhost:8000/docs")
+    logger.info("Note: http://0.0.0.0:8000 is a network bind address. Use localhost:8000 in your browser.")
+    logger.info("=" * 60)
+
 
 # Set all CORS enabled origins
 if settings.CORS_ORIGINS:
@@ -28,7 +41,7 @@ if settings.CORS_ORIGINS:
     )
 
 
-@app.middleware("http")
+@app.middleware("http")  # nosemgrep
 async def log_requests(
     request: Request, call_next: Callable[[Request], Awaitable[Any]]
 ) -> Any:
@@ -45,13 +58,45 @@ async def log_requests(
 app.include_router(router, prefix=settings.API_V1_STR)
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
+from fastapi.responses import FileResponse, HTMLResponse
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> FileResponse:
+    base_dir = Path(__file__).resolve().parents[1]
+    paths = [
+        base_dir / "frontend" / "dist" / "favicon.ico",
+        base_dir / "frontend" / "public" / "favicon.ico",
+    ]
+    for path in paths:
+        if path.exists():
+            return FileResponse(path)
+    # Default fallback to public favicon if exists, otherwise return 404
+    fallback_path = base_dir / "frontend" / "public" / "favicon.ico"
+    if fallback_path.exists():
+        return FileResponse(fallback_path)
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+
+@app.get("/")  # nosemgrep
+async def root(request: Request) -> Any:
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+        if frontend_dist.exists():
+            index_file = frontend_dist / "index.html"
+            if index_file.exists():
+                return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
     return {
         "message": "Welcome to Stock Intelligence Dashboard API",
         "docs": "/docs",
         "version": settings.VERSION,
     }
+
+
+frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

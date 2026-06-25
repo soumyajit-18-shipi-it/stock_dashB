@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { useAuth } from './useAuth';
 import { api } from '../services/api_client';
 import { useStore } from '../store/stock_store';
 
@@ -35,10 +37,12 @@ export function useStock() {
 export function useWatchlist() {
   const { addToWatchlist, removeFromWatchlist } = useStore();
   const queryClient = useQueryClient();
+  const { user, token } = useAuth();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['watchlist'],
+    queryKey: ['watchlist', user?.id],
     queryFn: api.getWatchlist,
+    enabled: Boolean(token),
   });
 
   const watchlist = data || [];
@@ -47,23 +51,32 @@ export function useWatchlist() {
     const symbol = ticker.trim().toUpperCase();
     if (!symbol) throw new Error('Ticker is required');
     const optimistic = { id: symbol, ticker: symbol, name };
-    queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
+    queryClient.setQueryData(['watchlist', user?.id], (current: unknown) => {
+      const items = Array.isArray(current) ? (current as typeof watchlist) : [];
       return items.some((entry) => entry.ticker === symbol) ? items : [...items, optimistic];
     });
     addToWatchlist(optimistic);
-    const item = await api.addToWatchlist(symbol, name);
-    queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
-      return items.map((entry) => entry.ticker === symbol ? item : entry);
-    });
-    return item;
+    try {
+      const item = await api.addToWatchlist(symbol, name);
+      queryClient.setQueryData(['watchlist', user?.id], (current: unknown) => {
+        const items = Array.isArray(current) ? (current as typeof watchlist) : [];
+        return items.map((entry) => (entry.ticker === symbol ? item : entry));
+      });
+      return item;
+    } catch (error) {
+      queryClient.setQueryData(['watchlist', user?.id], (current: unknown) => {
+        const items = Array.isArray(current) ? (current as typeof watchlist) : [];
+        return items.filter((entry) => entry.ticker !== symbol);
+      });
+      removeFromWatchlist(symbol);
+      throw error;
+    }
   };
 
   const remove = async (id: string) => {
     removeFromWatchlist(id);
-    queryClient.setQueryData(['watchlist'], (current: unknown) => {
-      const items = Array.isArray(current) ? current as typeof watchlist : [];
+    queryClient.setQueryData(['watchlist', user?.id], (current: unknown) => {
+      const items = Array.isArray(current) ? (current as typeof watchlist) : [];
       return items.filter((entry) => entry.id !== id && entry.ticker !== id);
     });
     await api.removeFromWatchlist(id);
@@ -75,10 +88,12 @@ export function useWatchlist() {
 export function useSearchHistory() {
   const { setSearchHistory } = useStore();
   const queryClient = useQueryClient();
+  const { user, token } = useAuth();
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['searchHistory'],
+    queryKey: ['searchHistory', user?.id],
     queryFn: api.getSearchHistory,
+    enabled: Boolean(token),
   });
 
   const history = data || [];
@@ -86,8 +101,8 @@ export function useSearchHistory() {
   const add = async (ticker: string) => {
     try {
       const item = await api.addSearchHistory(ticker);
-      queryClient.setQueryData(['searchHistory'], (current: unknown) => {
-        const items = Array.isArray(current) ? current as typeof history : [];
+      queryClient.setQueryData(['searchHistory', user?.id], (current: unknown) => {
+        const items = Array.isArray(current) ? (current as typeof history) : [];
         return [item, ...items.filter((entry) => entry.ticker !== item.ticker)].slice(0, 20);
       });
       void refetch();

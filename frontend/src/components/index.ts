@@ -13,3 +13,7 @@ export { AISettingsModal } from './AISettingsModal';
 export { AskAIDrawer } from './AskAIDrawer';
 export { AIReportButton } from './AIReportButton';
 export { WatchlistDropdown } from './WatchlistDropdown';
+export { AuthButton } from './AuthButton';
+export { UserMenu } from './UserMenu';
+export { FeedbackWidget } from './FeedbackWidget';
+export { LoginGate } from './LoginGate';

@@ -1,9 +1,10 @@
-import Plot from 'react-plotly.js';
 import { useTranslation } from 'react-i18next';
-import type { StockPricePoint } from '../types';
-import type { StockResponse } from '../types';
-import { currencyForStock } from '../utils/format';
+
+import { LazyPlot } from './LazyPlot';
 import { useUIStore } from '../store/ui_store';
+import { currencyForStock } from '../utils/format';
+
+import type { StockPricePoint, StockResponse } from '../types';
 
 interface StockChartProps {
   data: StockPricePoint[];
@@ -17,8 +18,22 @@ export function StockChart({ data, title, stockData }: StockChartProps) {
   const currency = currencyForStock(stockData);
   const symbol = currency === 'INR' ? 'INR ' : '$';
   const chartTheme = darkMode
-    ? { paper: 'transparent', plot: 'transparent', font: '#94a3b8', title: '#f1f5f9', grid: '#334155', line: '#475569' }
-    : { paper: '#ffffff', plot: '#ffffff', font: '#475569', title: '#0f172a', grid: '#e2e8f0', line: '#cbd5e1' };
+    ? {
+        paper: 'transparent',
+        plot: 'transparent',
+        font: '#94a3b8',
+        title: '#f1f5f9',
+        grid: '#334155',
+        line: '#475569',
+      }
+    : {
+        paper: '#ffffff',
+        plot: '#ffffff',
+        font: '#475569',
+        title: '#0f172a',
+        grid: '#e2e8f0',
+        line: '#cbd5e1',
+      };
 
   if (!data || data.length === 0) {
     return (
@@ -104,7 +119,7 @@ export function StockChart({ data, title, stockData }: StockChartProps) {
 
   return (
     <div className="w-full h-96 bg-slate-800/30 rounded-xl border border-slate-700 p-4">
-      <Plot data={traces} layout={layout} config={config} className="w-full h-full" />
+      <LazyPlot data={traces} layout={layout} config={config} className="w-full h-full" />
     </div>
   );
 }

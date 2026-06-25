@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Indic finance query row",
+  "type": "object",
+  "required": [
+    "id",
+    "language",
+    "script",
+    "region",
+    "query_text",
+    "normalized_query",
+    "intent",
+    "related_ticker",
+    "expected_response_type",
+    "source",
+    "license",
+    "consent_status",
+    "created_at",
+    "reviewer_notes"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^IFQ-[0-9]{4}$" },
+    "language": {
+      "type": "string",
+      "enum": ["en", "hi", "or", "bn", "te", "ta", "mr", "gu", "kn", "ml", "pa", "as"]
+    },
+    "script": { "type": "string" },
+    "region": { "type": "string" },
+    "query_text": { "type": "string", "minLength": 2 },
+    "normalized_query": { "type": "string", "minLength": 2 },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "stock_price_query",
+        "stock_prediction_query",
+        "company_summary",
+        "watchlist_help",
+        "risk_explanation",
+        "financial_term_explanation",
+        "report_generation",
+        "portfolio_question"
+      ]
+    },
+    "related_ticker": { "type": "string" },
+    "expected_response_type": { "type": "string" },
+    "source": { "type": "string" },
+    "license": { "type": "string" },
+    "consent_status": { "type": "string" },
+    "created_at": { "type": "string", "format": "date" },
+    "reviewer_notes": { "type": "string" }
+  }
+}

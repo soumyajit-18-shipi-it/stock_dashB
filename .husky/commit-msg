@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+# .husky/commit-msg
+#
+# Lightweight Conventional Commits linter — doesn't block, just warns.
+# Patterns: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert.
+#
+# To enforce strictly, change `exit 0` below to `exit 1`.
+
+. "$(dirname -- "$0")/_lib.sh"
+
+MSG_FILE="$1"
+SUBJECT="$(head -n 1 "$MSG_FILE" 2>/dev/null || true)"
+
+# Allow merge commits, fixup!, squash!, amend, and revert "revert:" lines.
+case "$SUBJECT" in
+  Merge*|Revert*|fixup!*|squash!*|amend!*) exit 0 ;;
+esac
+
+# Allowed Conventional Commit types.
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\([a-zA-Z0-9_.-]+\))?!?: .+'
+
+if echo "$SUBJECT" | grep -Eq "$PATTERN"; then
+  husky_ok "commit-msg: '$SUBJECT' matches Conventional Commits"
+  exit 0
+else
+  husky_warn "commit-msg: subject does NOT match Conventional Commits"
+  husky_warn "  expected: <type>(<scope>)?: <description>"
+  husky_warn "  got:      $SUBJECT"
+  husky_warn "  allowed types: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert"
+  exit 0  # soft warn — flip to `exit 1` to enforce
+fi
