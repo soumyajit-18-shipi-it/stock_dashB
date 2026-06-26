@@ -32,8 +32,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/backend
 
-# Expose port
+# Expose local default port. Railway injects PORT at runtime and run.py reads it.
 EXPOSE 8000
 
-# Run uvicorn
-CMD ["uvicorn", "run:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "run.py"]

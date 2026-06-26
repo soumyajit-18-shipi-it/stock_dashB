@@ -1,22 +1,140 @@
 import json
 import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import httpx
 from typing import List, Dict, Optional, AsyncGenerator, cast
 
 from core.config import settings
 
 logger = logging.getLogger("stock_dashboard")
-AI_PROVIDER_CONFIG_ERROR = (
-    "AI provider is not configured. Please set DEFAULT_GROQ_API_KEY or configure Ollama."
-)
+AI_PROVIDER_CONFIG_ERROR = "AI provider is not configured"
+AI_PROVIDER_SETUP_HINT = "Set GROQ_API_KEY or DEFAULT_GROQ_API_KEY in the backend environment."
+
+
+class AIProviderError(RuntimeError):
+    code = "AI_PROVIDER_ERROR"
+    status_code = 503
+
+    def __init__(self, message: str, *, code: Optional[str] = None) -> None:
+        super().__init__(message)
+        if code:
+            self.code = code
+
+
+class AIProviderNotConfigured(AIProviderError):
+    code = "AI_PROVIDER_NOT_CONFIGURED"
+    status_code = 503
+
+    def __init__(self) -> None:
+        super().__init__(AI_PROVIDER_CONFIG_ERROR)
+
+
+class AIProviderConnectionFailed(AIProviderError):
+    code = "AI_PROVIDER_CONNECTION_FAILED"
+    status_code = 503
+
+    def __init__(self) -> None:
+        super().__init__("Unable to connect to AI provider")
+
+
+class AIProviderEmptyResponse(AIProviderError):
+    code = "AI_EMPTY_RESPONSE"
+    status_code = 502
+
+    def __init__(self) -> None:
+        super().__init__("AI provider returned an empty response")
+
+
+class AIProviderTimeout(AIProviderError):
+    code = "AI_PROVIDER_TIMEOUT"
+    status_code = 504
+
+    def __init__(self) -> None:
+        super().__init__("AI provider request timed out")
+
+
+@dataclass(frozen=True)
+class ResolvedAIProvider:
+    provider: str
+    api_key: Optional[str]
+    base_url: str
+    model: str
+    streaming_supported: bool = True
+    report_generation_supported: bool = True
 
 
 class AIService:
     def __init__(self) -> None:
 
         # Default timeouts
-        self.default_timeout = httpx.Timeout(60.0, connect=5.0)
+        timeout_seconds = max(1, int(settings.AI_REQUEST_TIMEOUT_SECONDS or 45))
+        self.default_timeout = httpx.Timeout(float(timeout_seconds), connect=10.0)
         self.ollama_timeout = httpx.Timeout(5.0, connect=2.0)
+
+    def resolve_provider(self, provider: Optional[str] = None, model: Optional[str] = None) -> ResolvedAIProvider:
+        explicit = (provider or settings.AI_PROVIDER or "").strip().lower()
+        if explicit == "auto":
+            explicit = ""
+
+        candidates: list[str]
+        if explicit:
+            candidates = [explicit]
+        else:
+            candidates = []
+            if settings.GROQ_API_KEY or settings.DEFAULT_GROQ_API_KEY:
+                candidates.append("groq")
+            if settings.OPENAI_API_KEY:
+                candidates.append("openai")
+            if settings.OPENROUTER_API_KEY:
+                candidates.append("openrouter")
+            if settings.OLLAMA_BASE_URL and settings.is_development:
+                candidates.append("ollama")
+
+        for candidate in candidates:
+            key = self._get_default_key(candidate)
+            if candidate in {"groq", "openai", "openrouter"} and not key:
+                continue
+            if candidate == "ollama" and not settings.OLLAMA_BASE_URL:
+                continue
+            if candidate == "ollama" and not settings.is_development and not explicit:
+                continue
+            return ResolvedAIProvider(
+                provider=candidate,
+                api_key=key,
+                base_url=settings.OLLAMA_BASE_URL if candidate == "ollama" else self._get_default_base_url(candidate),
+                model=model or settings.AI_MODEL or self._get_default_model(candidate),
+            )
+
+        raise AIProviderNotConfigured()
+
+    def health(self) -> dict[str, object]:
+        try:
+            resolved = self.resolve_provider()
+        except AIProviderNotConfigured:
+            return {
+                "configured": False,
+                "provider": None,
+                "error": AI_PROVIDER_CONFIG_ERROR,
+                "code": "AI_PROVIDER_NOT_CONFIGURED",
+            }
+
+        return {
+            "configured": True,
+            "provider": resolved.provider,
+            "model": resolved.model,
+            "streaming_supported": resolved.streaming_supported,
+            "report_generation_supported": resolved.report_generation_supported,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def startup_diagnostics(self) -> dict[str, object]:
+        health = self.health()
+        return {
+            "configured": health.get("configured", False),
+            "provider": health.get("provider"),
+            "model": health.get("model"),
+        }
 
     async def get_models(
         self,
@@ -25,15 +143,17 @@ class AIService:
         base_url: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """Fetch available models for a provider."""
-        # Normalize provider
-        p = provider.lower() if provider else "groq"
-        if p == "auto":
-            p = "groq"
+        try:
+            resolved = self.resolve_provider(provider)
+        except AIProviderNotConfigured:
+            return self._get_fallback_models("groq")
+
+        p = resolved.provider
 
         logger.info(f"Fetching models for provider: {p}")
 
         if p == "ollama":
-            url = f"{base_url or 'http://localhost:11434'}/api/tags"
+            url = f"{resolved.base_url}/api/tags"
             try:
                 async with httpx.AsyncClient(timeout=self.ollama_timeout) as client:
                     response = await client.get(url)
@@ -46,12 +166,12 @@ class AIService:
                 return []
 
         # Default to OpenAI-compatible for most providers
-        url = f"{base_url or self._get_default_base_url(p)}/models"
-        headers = self._get_headers(p, api_key)
+        url = f"{resolved.base_url}/models"
+        headers = self._get_headers(p, resolved.api_key)
 
         # Special case for Gemini
         if p == "gemini":
-            key = api_key or settings.GEMINI_API_KEY
+            key = settings.GEMINI_API_KEY
             if not key:
                 return []
             url = f"https://generativelanguage.googleapis.com/v1/models?key={key}"
@@ -93,104 +213,100 @@ class AIService:
         temperature: float = 0.3,
         max_tokens: int = 8000,
     ) -> AsyncGenerator[str, None]:
-        """Stream chat completions from various providers with fallback."""
+        """Stream chat completions from the backend-configured provider."""
 
-        # Normalize provider
-        p = provider.lower() if provider else "groq"
-        if p == "auto":
-            p = "groq"
-
-        primary_config = {
-            "provider": p,
-            "api_key": api_key,
-            "base_url": base_url,
-            "model": model,
-        }
-
-        configs = [primary_config]
-
-        # Add fallbacks only if they are different from primary
-        if p != "ollama":
-            configs.append(
-                {
-                    "provider": "ollama",
-                    "api_key": None,
-                    "base_url": "http://localhost:11434",
-                    "model": "llama3",
-                }
-            )
-
-        if p != "groq" or (p == "groq" and api_key):
-            # If primary was a user-provided groq key, fallback to app default groq key
-            configs.append(
-                {
-                    "provider": "groq",
-                    "api_key": settings.DEFAULT_GROQ_API_KEY,
-                    "base_url": "https://api.groq.com/openai/v1",
-                    "model": "llama-3.3-70b-versatile",
-                }
-            )
-
-        # Filter out invalid configs and duplicates
-        seen = set()
-        valid_configs = []
-        for c in configs:
-            key = (c["provider"], c["api_key"], c["base_url"], c["model"])
-            if key in seen:
-                continue
-            seen.add(key)
-
-            if c["provider"] == "groq" and not (
-                c["api_key"] or settings.DEFAULT_GROQ_API_KEY
-            ):
-                continue
-            if c["provider"] == "openai" and not c["api_key"] and not c["base_url"]:
-                continue
-            valid_configs.append(c)
-
-        missing_default_provider = p in {"auto", "groq"} and not (
-            api_key or settings.DEFAULT_GROQ_API_KEY
-        )
-        last_error = None
-        for config in valid_configs:
+        try:
+            resolved = self.resolve_provider(provider, model)
             logger.info(
-                f"Attempting stream: provider={config['provider']}, model={config['model']}"
+                "Attempting AI stream: provider=%s, model=%s",
+                resolved.provider,
+                resolved.model,
             )
-            try:
-                success = False
-                async for chunk in self._attempt_stream(
-                    messages=messages,
-                    provider=cast(str, config["provider"]),
-                    model=config["model"],
-                    api_key=config["api_key"],
-                    base_url=config["base_url"],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                ):
-                    yield chunk
-                    success = True
+            token_count = 0
+            async for chunk in self._attempt_stream(
+                messages=messages,
+                provider=resolved.provider,
+                model=resolved.model,
+                api_key=resolved.api_key,
+                base_url=resolved.base_url,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ):
+                token_count += 1
+                yield chunk
 
-                if success:
-                    logger.info(f"Stream successful with {config['provider']}")
-                    yield "data: [DONE]\n\n"
-                    return
-            except Exception as e:
-                logger.error(
-                    f"Stream attempt failed for {config['provider']}: {str(e)}"
-                )
-                last_error = e
-                continue
+            if token_count == 0:
+                raise AIProviderEmptyResponse()
 
-        if missing_default_provider:
-            yield f"data: {json.dumps({'error': AI_PROVIDER_CONFIG_ERROR})}\n\n"
+            logger.info("AI stream successful with provider=%s", resolved.provider)
             yield "data: [DONE]\n\n"
-            return
+        except AIProviderError as exc:
+            logger.warning("AI stream failed: %s: %s", exc.__class__.__name__, str(exc))
+            yield f"data: {json.dumps({'error': str(exc), 'code': exc.code})}\n\n"
+            yield "data: [DONE]\n\n"
+        except (httpx.ConnectError, httpx.NetworkError) as exc:
+            logger.warning("AI provider connection failed: %s", exc.__class__.__name__)
+            error = AIProviderConnectionFailed()
+            yield f"data: {json.dumps({'error': str(error), 'code': error.code})}\n\n"
+            yield "data: [DONE]\n\n"
+        except httpx.TimeoutException as exc:
+            logger.warning("AI provider timed out: %s", exc.__class__.__name__)
+            error = AIProviderTimeout()
+            yield f"data: {json.dumps({'error': str(error), 'code': error.code})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            logger.warning("AI provider failed: %s: %s", exc.__class__.__name__, str(exc))
+            error = AIProviderConnectionFailed()
+            yield f"data: {json.dumps({'error': str(error), 'code': error.code})}\n\n"
+            yield "data: [DONE]\n\n"
 
-        if last_error:
-            yield f"data: {json.dumps({'error': str(last_error)})}\n\n"
-        else:
-            yield f"data: {json.dumps({'error': AI_PROVIDER_CONFIG_ERROR})}\n\n"
-        yield "data: [DONE]\n\n"
+    async def complete_chat(
+        self,
+        messages: List[Dict[str, str]],
+        provider: str = "auto",
+        model: Optional[str] = None,
+        temperature: float = 0.3,
+        max_tokens: int = 8000,
+    ) -> str:
+        full_content = ""
+        stream_error: Optional[AIProviderError] = None
+        async for chunk in self.stream_chat(
+            messages=messages,
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            if not chunk.startswith("data: "):
+                continue
+            data_str = chunk[6:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                data = json.loads(data_str)
+            except Exception:
+                continue
+            if "error" in data:
+                stream_error = AIProviderError(
+                    str(data.get("error") or "AI provider error"),
+                    code=str(data.get("code") or "AI_PROVIDER_ERROR"),
+                )
+                break
+            full_content += data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+
+        if stream_error:
+            if stream_error.code == AIProviderNotConfigured.code:
+                raise AIProviderNotConfigured()
+            if stream_error.code == AIProviderEmptyResponse.code:
+                raise AIProviderEmptyResponse()
+            if stream_error.code == AIProviderTimeout.code:
+                raise AIProviderTimeout()
+            raise AIProviderConnectionFailed()
+
+        if not full_content.strip():
+            raise AIProviderEmptyResponse()
+
+        return full_content
 
     async def _attempt_stream(
         self,
@@ -255,7 +371,12 @@ class AIService:
                 },
             }
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        try:
+            client_context = httpx.AsyncClient(timeout=timeout)
+        except TypeError:
+            client_context = httpx.AsyncClient()
+
+        async with client_context as client:
             if provider == "gemini":
                 async with client.stream(
                     "POST", url, headers=headers, json=payload
@@ -286,6 +407,11 @@ class AIService:
             ) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
+                    logger.warning(
+                        "AI provider returned non-200 response: provider=%s status=%s",
+                        provider,
+                        response.status_code,
+                    )
                     raise Exception(
                         f"{provider} error ({response.status_code}): {error_text.decode()}"
                     )
@@ -343,10 +469,11 @@ class AIService:
 
     def _get_default_model(self, provider: str) -> str:
         models = {
-            "groq": "llama-3.3-70b-versatile",
+            "groq": "llama-3.1-8b-instant",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-sonnet-20240620",
             "gemini": "gemini-1.5-flash",
+            "openrouter": "openai/gpt-4o-mini",
         }
         return models.get(provider, "gpt-3.5-turbo")
 

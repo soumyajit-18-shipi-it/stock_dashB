@@ -1,16 +1,21 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / "backend" / ".env")
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Stock Intelligence Dashboard API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
+    ENVIRONMENT: str = os.getenv(
+        "APP_ENV", os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
+    )
 
     # Supabase
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
@@ -33,21 +38,47 @@ class Settings(BaseSettings):
     # External APIs
     FINNHUB_API_KEY: str = os.getenv("FINNHUB_API_KEY", "")
 
-    DEFAULT_GROQ_API_KEY: str = os.getenv(
-        "DEFAULT_GROQ_API_KEY", os.getenv("GROQ_API_KEY", "")
-    )
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "")
+    AI_MODEL: str = os.getenv("AI_MODEL", "")
+    AI_REQUEST_TIMEOUT_SECONDS: int = int(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "45"))
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    DEFAULT_GROQ_API_KEY: str = os.getenv("DEFAULT_GROQ_API_KEY", GROQ_API_KEY)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 
     # CORS
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "")
+    CORS_ORIGINS_RAW: str = os.getenv("CORS_ORIGINS", "")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        defaults = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ]
+        origins = []
+        if self.FRONTEND_URL:
+            origins.append(self.FRONTEND_URL)
+        if self.CORS_ORIGINS_RAW:
+            raw = self.CORS_ORIGINS_RAW.strip()
+            if raw.startswith("["):
+                import json
+
+                try:
+                    origins.extend(str(item).strip() for item in json.loads(raw))
+                except Exception:
+                    origins.extend(item.strip() for item in raw.split(","))
+            else:
+                origins.extend(item.strip() for item in raw.split(","))
+        origins.extend(defaults)
+        return list(dict.fromkeys(origin for origin in origins if origin))
 
     class Config:
         case_sensitive = True

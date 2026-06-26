@@ -3,6 +3,7 @@ import logging
 import os
 from base64 import b64decode
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import Request, HTTPException
@@ -67,12 +68,15 @@ def _extract_metadata(user: Any) -> tuple[str | None, str | None, str]:
 def _ensure_user_profile(user: Any, payload: UserPayload) -> None:
     client = get_supabase_client()
     full_name, avatar_url, provider = _extract_metadata(user)
+    now_str = datetime.now(timezone.utc).isoformat()
     data = {
         "id": payload.user_id,
         "email": payload.email,
-        "full_name": full_name or "",
+        "full_name": full_name or payload.email.split("@", 1)[0],
         "avatar_url": avatar_url or "",
         "provider": provider,
+        "last_seen_at": now_str,
+        "updated_at": now_str,
     }
     try:
         client.table("user_profiles").upsert(data, on_conflict="id").execute()

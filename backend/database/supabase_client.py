@@ -1,13 +1,16 @@
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
 
 from dotenv import load_dotenv
 
 logger = logging.getLogger("stock_dashboard")
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / "backend" / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")

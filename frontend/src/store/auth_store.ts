@@ -4,6 +4,16 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 import type { User } from '@supabase/supabase-js';
 
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+const hasExplicitApiUrl = Boolean(VITE_API_URL && VITE_API_URL !== '/api/v1');
+const FASTAPI_URL =
+  hasExplicitApiUrl
+    ? VITE_API_URL
+    : typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000/api/v1'
+    : '/api/v1';
+
 export interface AuthState {
   user: User | null;
   token: string | null;
@@ -22,6 +32,20 @@ const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '')
 function checkIsAdmin(email?: string) {
   if (!email) return false;
   return adminEmails.includes(email.toLowerCase());
+}
+
+async function syncProfile(accessToken: string) {
+  try {
+    await fetch(`${FASTAPI_URL}/auth/sync-profile`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (err) {
+    console.warn('Profile sync failed; dashboard data may update after the next authenticated API call.', err);
+  }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -81,6 +105,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       if (session) {
+        void syncProfile(session.access_token);
         set({
           user: session.user,
           token: session.access_token,
@@ -96,6 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       if (session) {
+        void syncProfile(session.access_token);
         set({
           user: session.user,
           token: session.access_token,

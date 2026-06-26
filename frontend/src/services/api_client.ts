@@ -337,6 +337,18 @@ export const api = {
     }
   },
 
+  async syncProfile(): Promise<{ success: boolean }> {
+    const response = await fetchWithAuth(
+      `${FASTAPI_URL}/auth/sync-profile`,
+      { method: 'POST' },
+      { requireAuth: true }
+    );
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to sync user profile'));
+    }
+    return (await response.json()) as { success: boolean };
+  },
+
   // Feedback API Endpoints
   async submitFeedback(
     category: string,

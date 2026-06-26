@@ -134,6 +134,22 @@ class FeedbackResponse(BaseModel):
     priority: str
     created_at: datetime
     updated_at: datetime
+    submitter_name: str | None = None
+    submitter_avatar_url: str | None = None
+    submitter_provider: str | None = None
+
+
+class AdminUserSummary(BaseModel):
+    id: str
+    email: str | None = None
+    full_name: str | None = None
+    avatar_url: str | None = None
+    provider: str | None = None
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    total_feedback_count: int = 0
+    total_watchlist_items: int = 0
+    total_searches: int = 0
 
 
 class AdminUserCountResponse(BaseModel):
@@ -147,6 +163,10 @@ class AdminStatsResponse(BaseModel):
     total_users: int
     new_users_today: int
     new_users_this_week: int
+    active_today: int
     total_feedback_issues: int
     open_feedback_issues: int
+    latest_signups: list[AdminUserSummary] = Field(default_factory=list)
+    recent_feedback: list[FeedbackResponse] = Field(default_factory=list)
+    users: list[AdminUserSummary] = Field(default_factory=list)
     last_updated: datetime

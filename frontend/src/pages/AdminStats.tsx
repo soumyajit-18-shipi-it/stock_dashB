@@ -1,11 +1,44 @@
-import { Users, MessageSquare, Calendar, AlertCircle, ArrowLeft, Filter, RefreshCw, ChevronRight } from 'lucide-react';
+import { Users, MessageSquare, Calendar, AlertCircle, ArrowLeft, Filter, RefreshCw, ChevronRight, Activity, UserPlus, Search } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api_client';
 import { useUIStore } from '../store/ui_store';
 
-import type { AdminStats as StatsType, FeedbackIssue } from '../types';
+import type { AdminStats as StatsType, FeedbackIssue, AdminUserSummary } from '../types';
+
+function formatDate(value?: string) {
+  if (!value) return 'Not recorded';
+  return new Date(value).toLocaleString();
+}
+
+function userDisplayName(user?: Pick<AdminUserSummary, 'full_name' | 'email'>) {
+  return user?.full_name?.trim() || 'Unknown User';
+}
+
+function initials(name?: string, email?: string) {
+  const source = name?.trim() || email || '?';
+  return source.slice(0, 2).toUpperCase();
+}
+
+function Avatar({ user, size = 'md' }: { user: Pick<AdminUserSummary, 'full_name' | 'email' | 'avatar_url'>; size?: 'sm' | 'md' }) {
+  const className = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-sm';
+  if (user.avatar_url) {
+    return (
+      <img
+        src={user.avatar_url}
+        alt=""
+        className={`${className} rounded-full bg-slate-800 object-cover border border-slate-700`}
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  return (
+    <div className={`${className} rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 flex items-center justify-center font-bold`}>
+      {initials(user.full_name, user.email)}
+    </div>
+  );
+}
 
 export function AdminStats() {
   const { user, token, isAdmin, loading: authLoading } = useAuth();
@@ -19,6 +52,15 @@ export function AdminStats() {
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterUser, setFilterUser] = useState<string>('');
+
+  const visibleIssues = issues.filter((issue) => {
+    const needle = filterUser.trim().toLowerCase();
+    if (!needle) return true;
+    return [issue.email, issue.submitter_name, issue.title]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(needle));
+  });
 
   const fetchData = useCallback(async () => {
     if (!user || !token || !isAdmin) return;
@@ -35,8 +77,11 @@ export function AdminStats() {
       setStats(statsData);
       setIssues(issuesData);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch admin dashboard statistics.';
-      setError(msg);
+      const raw = err instanceof Error ? err.message : 'Failed to fetch admin dashboard statistics.';
+      const friendly = raw.toLowerCase().includes('token')
+        ? 'Your admin session could not be verified. Please sign out, sign back in with an allowlisted admin email, and refresh.'
+        : raw;
+      setError(friendly);
     } finally {
       setLoading(false);
     }
@@ -140,7 +185,7 @@ export function AdminStats() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Total Users */}
           <div className="bg-slate-900 border border-slate-850 rounded-xl p-5 shadow-sm space-y-2 relative overflow-hidden">
             <div className="absolute top-4 right-4 text-emerald-400 bg-emerald-500/10 p-2 rounded-lg">
@@ -149,6 +194,16 @@ export function AdminStats() {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Users</p>
             <h3 className="text-3xl font-bold text-white">{loading ? '...' : stats?.total_users ?? 0}</h3>
             <p className="text-xs text-slate-500">Sign-ups since launch</p>
+          </div>
+
+          {/* Active Today */}
+          <div className="bg-slate-900 border border-slate-850 rounded-xl p-5 shadow-sm space-y-2 relative overflow-hidden">
+            <div className="absolute top-4 right-4 text-emerald-400 bg-emerald-500/10 p-2 rounded-lg">
+              <Activity className="h-5 w-5" />
+            </div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Today</p>
+            <h3 className="text-3xl font-bold text-white">{loading ? '...' : stats?.active_today ?? 0}</h3>
+            <p className="text-xs text-slate-500">Seen in last 24h</p>
           </div>
 
           {/* New Users Today */}
@@ -192,6 +247,91 @@ export function AdminStats() {
           </div>
         </div>
 
+        {/* User Analytics */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-white">User Analytics</h2>
+            <p className="text-slate-400 text-sm">Recent signups and authenticated user activity.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-emerald-400" />
+                <h3 className="font-bold text-white">Latest Signups</h3>
+              </div>
+              <div className="divide-y divide-slate-800">
+                {loading ? (
+                  <div className="p-6 text-sm text-slate-400">Loading signups...</div>
+                ) : (stats?.latest_signups?.length ?? 0) === 0 ? (
+                  <div className="p-6 text-sm text-slate-400">No user profiles found. Run the Supabase backfill SQL if users already signed in.</div>
+                ) : (
+                  stats?.latest_signups.map((signup) => (
+                    <div key={signup.id} className="p-4 flex items-center gap-3">
+                      <Avatar user={signup} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white truncate">{userDisplayName(signup)}</p>
+                        <p className="text-xs text-slate-400 truncate">{signup.email || 'No email recorded'}</p>
+                        <p className="text-xs text-slate-500 mt-1">First seen {formatDate(signup.first_seen_at)}</p>
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded-md bg-slate-800 text-slate-300 uppercase">
+                        {signup.provider || 'unknown'}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex items-center gap-2">
+                <Users className="h-5 w-5 text-emerald-400" />
+                <h3 className="font-bold text-white">Recent Users</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-950/60 text-slate-400 text-xs uppercase">
+                    <tr>
+                      <th className="text-left font-semibold p-3">User</th>
+                      <th className="text-left font-semibold p-3">Last Seen</th>
+                      <th className="text-right font-semibold p-3">Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {loading ? (
+                      <tr><td colSpan={3} className="p-6 text-slate-400">Loading users...</td></tr>
+                    ) : (stats?.users?.length ?? 0) === 0 ? (
+                      <tr><td colSpan={3} className="p-6 text-slate-400">No users found.</td></tr>
+                    ) : (
+                      stats?.users.map((appUser) => (
+                        <tr key={appUser.id} className="hover:bg-slate-850/30">
+                          <td className="p-3">
+                            <div className="flex items-center gap-3 min-w-64">
+                              <Avatar user={appUser} size="sm" />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-white truncate">{userDisplayName(appUser)}</p>
+                                <p className="text-xs text-slate-400 truncate">{appUser.email || 'No email recorded'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-slate-300 whitespace-nowrap">{formatDate(appUser.last_seen_at)}</td>
+                          <td className="p-3 text-right text-slate-300 whitespace-nowrap">
+                            <span title="Feedback reports">{appUser.total_feedback_count ?? 0} reports</span>
+                            <span className="text-slate-600 mx-1">/</span>
+                            <span title="Watchlist items">{appUser.total_watchlist_items ?? 0} watchlist</span>
+                            <span className="text-slate-600 mx-1">/</span>
+                            <span title="Searches">{appUser.total_searches ?? 0} searches</span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Feedback Listing Section */}
         <div className="bg-slate-900 border border-slate-855 rounded-2xl overflow-hidden shadow-lg">
           <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -201,7 +341,7 @@ export function AdminStats() {
                 Submitted Feedback & Issues
               </h3>
               <p className="text-slate-400 text-xs mt-0.5">
-                {issues.length} feedback reports found matching parameters.
+                {visibleIssues.length} feedback reports found matching parameters.
               </p>
             </div>
             
@@ -240,6 +380,17 @@ export function AdminStats() {
                   <option value="development_query">Development Query</option>
                 </select>
               </div>
+
+              <label className="flex items-center gap-1.5 bg-slate-850 rounded-lg px-2.5 py-1.5 border border-slate-700 text-xs">
+                <Search className="h-3.5 w-3.5 text-slate-400" />
+                <span className="text-slate-300 font-medium">User:</span>
+                <input
+                  value={filterUser}
+                  onChange={(e) => setFilterUser(e.target.value)}
+                  placeholder="Name or email"
+                  className="bg-transparent text-white placeholder:text-slate-500 focus:outline-none w-32"
+                />
+              </label>
             </div>
           </div>
 
@@ -249,7 +400,7 @@ export function AdminStats() {
               <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-emerald-500 mx-auto mb-3"></div>
               Loading feedback issues...
             </div>
-          ) : issues.length === 0 ? (
+          ) : visibleIssues.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-2">
               <MessageSquare className="h-10 w-10 text-slate-600 mx-auto" />
               <p className="font-semibold">No feedback records found</p>
@@ -257,10 +408,10 @@ export function AdminStats() {
             </div>
           ) : (
             <div className="divide-y divide-slate-800">
-              {issues.map((issue) => (
+              {visibleIssues.map((issue) => (
                 <div key={issue.id} className="p-6 hover:bg-slate-850/30 transition-colors space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
+                    <div className="space-y-2 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-300 uppercase">
                           {issue.category.replace('_', ' ')}
@@ -275,9 +426,23 @@ export function AdminStats() {
                         </span>
                       </div>
                       <h4 className="text-base font-bold text-white">{issue.title}</h4>
-                      <p className="text-xs text-slate-400">
-                        Submitted by: <span className="text-slate-200">{issue.email || 'Anonymous'}</span> on {new Date(issue.created_at).toLocaleString()}
-                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <Avatar
+                          user={{
+                            full_name: issue.submitter_name,
+                            email: issue.email,
+                            avatar_url: issue.submitter_avatar_url,
+                          }}
+                          size="sm"
+                        />
+                        <p className="min-w-0">
+                          Submitted by:{' '}
+                          <span className="text-slate-200">
+                            {issue.submitter_name || 'Unknown User'} ({issue.email || 'no email recorded'})
+                          </span>
+                          {' '}on {formatDate(issue.created_at)}
+                        </p>
+                      </div>
                     </div>
 
                     <span className={`text-xs px-3 py-1 rounded-lg font-bold border ${

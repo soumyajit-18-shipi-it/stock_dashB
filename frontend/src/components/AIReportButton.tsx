@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
-import { generateReport, isAIConfigured } from '../services/aiProviderService';
+import { fetchAIHealth, generateReport } from '../services/aiProviderService';
 import { useUIStore } from '../store/ui_store';
 import { currencyForStock } from '../utils/format';
 
@@ -143,11 +143,12 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 
 export function AIReportButton({ stockData }: AIReportButtonProps) {
   const { t, i18n } = useTranslation();
-  const { aiProviderConfig, setAiSettingsOpen } = useUIStore();
+  const { aiProviderConfig } = useUIStore();
   const [loading, setLoading] = useState(false);
   const [generationComplete, setGenerationComplete] = useState(false);
   const [report, setReport] = useState('');
   const [toast, setToast] = useState('');
+  const [reportError, setReportError] = useState('');
   const reportRef = useRef<HTMLDivElement>(null);
   const currency = currencyForStock(stockData);
 
@@ -168,17 +169,11 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
   };
 
   const exportReport = async () => {
-    if (!isAIConfigured(aiProviderConfig) && !aiProviderConfig.apiKey) {
-      if (aiProviderConfig.provider !== 'auto' && aiProviderConfig.provider !== 'ollama') {
-        setAiSettingsOpen(true);
-        return;
-      }
-    }
-
     const controller = new AbortController();
     setLoading(true);
     setGenerationComplete(false);
     setReport('');
+    setReportError('');
     let markdown = '';
     let attempts = 0;
     const maxAttempts = 3;
@@ -186,6 +181,11 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
     let lastError: Error | null = null;
 
     try {
+      const health = await fetchAIHealth(controller.signal);
+      if (!health.configured) {
+        throw new Error('AI provider is not configured on the backend.');
+      }
+
       while (attempts < maxAttempts && !success) {
         attempts++;
         markdown = '';
@@ -279,7 +279,9 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
       showToast(t('aiReportSuccess'));
     } catch (error) {
       console.error('Report generation error:', error);
-      showToast(error instanceof Error ? error.message : t('aiError'));
+      const message = error instanceof Error ? error.message : t('aiError');
+      setReportError(message);
+      showToast(message);
     } finally {
       setLoading(false);
     }
@@ -299,6 +301,17 @@ export function AIReportButton({ stockData }: AIReportButtonProps) {
       {toast && (
         <div className="fixed bottom-5 left-5 z-[110] rounded-lg bg-slate-800 px-4 py-2 text-sm text-white shadow-xl">
           {toast}
+        </div>
+      )}
+      {reportError && !loading && (
+        <div className="fixed bottom-16 left-5 z-[110] max-w-sm rounded-lg border border-red-500/30 bg-red-950 px-4 py-3 text-sm text-red-100 shadow-xl">
+          <p>{reportError}</p>
+          <button
+            onClick={exportReport}
+            className="mt-3 rounded-md bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-50 hover:bg-red-500/30"
+          >
+            Retry
+          </button>
         </div>
       )}
 

@@ -18,16 +18,22 @@ The feedback system is built on:
     *   `GET /api/v1/admin/feedback`: Allows admins to list and filter all feedback.
 3.  **Supabase Table (`feedback_issues`):** A database table storing categories, status updates, priority fields, and captured URLs.
 
-## Database Setup (Main Path - No CLI Required)
+## Database Setup (Supabase CLI First)
 
-To set up the `feedback_issues` and related tables:
+Supabase CLI migrations are the primary way to set up `feedback_issues` and related tables:
 
-1. Copy the entire SQL content from the root-level script [supabase_setup.sql](file:///C:/Users/soumy/stock_dashB/supabase_setup.sql).
-2. Go to your **Supabase Web Dashboard**.
-3. Access the **SQL Editor** from the left-hand menu.
-4. Click **New Query**, paste the code, and click **Run**.
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+npx supabase gen types typescript --linked --schema public > frontend/src/types/supabase.ts
+```
 
-*Note: Using the Supabase CLI (`supabase db push`) is entirely optional.*
+Do not run `npx supabase db reset` against hosted production data.
+
+### Manual SQL Fallback
+
+The root-level [supabase_setup.sql](file:///C:/Users/soumy/stock_dashB/supabase_setup.sql) and [supabase_admin_dashboard_fix.sql](file:///C:/Users/soumy/stock_dashB/supabase_admin_dashboard_fix.sql) files remain fallback scripts for the Supabase Web Dashboard SQL Editor.
 
 ### Web-Dashboard Verification Steps
 * Open the **Table Editor** in your Supabase Web Dashboard.
@@ -41,6 +47,7 @@ Ensure the following environment configurations are set:
 ### Frontend Variables (`frontend/.env`)
 *   `VITE_API_URL=http://localhost:8000/api/v1`
 *   `VITE_SUPABASE_URL=https://your-project-ref.supabase.co`
+*   `VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key`
 *   `VITE_SUPABASE_ANON_KEY=your-supabase-anon-key`
 *   `VITE_APP_URL=http://localhost:5173`
 
@@ -48,6 +55,8 @@ Ensure the following environment configurations are set:
 *   `SUPABASE_URL=https://your-project-ref.supabase.co`
 *   `SUPABASE_ANON_KEY=your-supabase-anon-key`
 *   `SUPABASE_SERVICE_ROLE_KEY=your-service-role-key`
+
+The frontend uses only the publishable/anon key. The service role key is backend-only.
 
 Note: In local development, the backend should be accessed at `http://localhost:8000` (not `http://0.0.0.0:8000`), and the frontend runs on `http://localhost:5173`.
 
@@ -67,3 +76,9 @@ For open-source developers, issue templates are provided at:
 *   [Documentation.md](file:///C:/Users/soumy/stock_dashB/.gitlab/issue_templates/Documentation.md)
 *   [Setup_Query.md](file:///C:/Users/soumy/stock_dashB/.gitlab/issue_templates/Setup_Query.md)
 *   [Development_Query.md](file:///C:/Users/soumy/stock_dashB/.gitlab/issue_templates/Development_Query.md)
+
+## Production Notes
+
+- Feedback submissions go from Vercel frontend to Railway backend through `VITE_API_URL`.
+- Railway `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
+- Feedback requires authenticated Supabase users; the service role key remains backend-only.
