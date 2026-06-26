@@ -168,6 +168,28 @@ async def ai_health_check() -> dict[str, Any]:
     return ai_service.health()
 
 
+@router.get("/health/supabase")
+async def supabase_health_check() -> dict[str, Any]:
+    from database.supabase_client import (
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+        MockSupabaseClient,
+        is_placeholder_value,
+    )
+    client = get_supabase_client()
+    using_mock = isinstance(client, MockSupabaseClient)
+    configured = (
+        bool(SUPABASE_URL)
+        and not is_placeholder_value(SUPABASE_URL, kind="url")
+        and bool(SUPABASE_SERVICE_ROLE_KEY)
+        and not is_placeholder_value(SUPABASE_SERVICE_ROLE_KEY, kind="service_role")
+    )
+    return {
+        "configured": configured,
+        "using_mock_client": using_mock,
+    }
+
+
 def _ai_error_payload(exc: AIProviderError) -> dict[str, str]:
     payload = {
         "error": str(exc),

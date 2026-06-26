@@ -12,8 +12,18 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env")
 load_dotenv(ROOT_DIR / "backend" / ".env")
 
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))).lower()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+# Public/backend client key:
+# prefer SUPABASE_ANON_KEY
+# fallback SUPABASE_PUBLISHABLE_KEY
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", ""))
+
+# Admin/server key:
+# prefer SUPABASE_SERVICE_ROLE_KEY
+# fallback SUPABASE_SECRET_KEY
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_SECRET_KEY", ""))
 
 _supabase_client: Any = None
 
@@ -209,22 +219,36 @@ def get_supabase_client() -> Any:
             # pylint: disable=import-outside-toplevel,no-name-in-module
             from supabase import create_client
 
-            # Verify keys are valid
-            if is_placeholder_value(SUPABASE_URL, kind="url") or is_placeholder_value(
-                SUPABASE_SERVICE_ROLE_KEY, kind="service_role"
-            ):
-                logger.warning(
-                    "Supabase URL or Key is missing or placeholder. "
-                    "Falling back to MockSupabaseClient."
-                )
-                _supabase_client = MockSupabaseClient()
-            else:
+            is_prod = APP_ENV in ("prod", "production")
+            if is_prod:
+                if not SUPABASE_URL or is_placeholder_value(SUPABASE_URL, kind="url"):
+                    raise ValueError("SUPABASE_URL is missing or invalid in production environment!")
+                if not SUPABASE_SERVICE_ROLE_KEY or is_placeholder_value(SUPABASE_SERVICE_ROLE_KEY, kind="service_role"):
+                    raise ValueError("SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY is missing or invalid in production environment!")
                 _supabase_client = create_client(
                     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
                 )
-        except Exception:  # pylint: disable=broad-exception-caught
+            else:
+                # Verify keys are valid
+                if is_placeholder_value(SUPABASE_URL, kind="url") or is_placeholder_value(
+                    SUPABASE_SERVICE_ROLE_KEY, kind="service_role"
+                ):
+                    logger.warning(
+                        "Supabase URL or Key is missing or placeholder. "
+                        "Falling back to MockSupabaseClient."
+                    )
+                    _supabase_client = MockSupabaseClient()
+                else:
+                    _supabase_client = create_client(
+                        SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+                    )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            is_prod = APP_ENV in ("prod", "production")
+            if is_prod:
+                logger.error(f"Failed to initialize Supabase client in production: {e}")
+                raise e
             logger.warning(
-                "Failed to initialize Supabase client. Falling back to Mock."
+                f"Failed to initialize Supabase client. Falling back to Mock. Error: {e}"
             )
             _supabase_client = MockSupabaseClient()
     return cast(Any, _supabase_client)
