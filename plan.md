@@ -66,13 +66,13 @@
 - [x] Run frontend typecheck/lint/build
 - [x] Commit changes
 - [x] Push to GitHub
-- [ ] Deploy backend to Railway
-- [ ] Deploy frontend to Vercel
-- [ ] Verify production Ask AI
-- [ ] Verify production AI Report Generator
-- [ ] Verify production stock search
-- [ ] Verify production admin stats
-- [ ] Verify production feedback
+- [x] Deploy backend to Railway
+- [x] Deploy frontend to Vercel
+- [x] Verify production Ask AI
+- [x] Verify production AI Report Generator
+- [x] Verify production stock search
+- [x] Verify production admin stats
+- [x] Verify production feedback
 
 ## Tasks
 
