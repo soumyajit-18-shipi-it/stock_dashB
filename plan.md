@@ -65,7 +65,7 @@
 - [x] Run backend tests
 - [x] Run frontend typecheck/lint/build
 - [x] Commit changes
-- [ ] Push to GitHub
+- [x] Push to GitHub
 - [ ] Deploy backend to Railway
 - [ ] Deploy frontend to Vercel
 - [ ] Verify production Ask AI
