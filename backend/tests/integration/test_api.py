@@ -15,6 +15,9 @@ if root_dir not in sys.path:
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+from database.supabase_client import MockTableQuery  # noqa: E402
+from core.config import settings  # noqa: E402
+
 
 class TestAPIEndpoints:
     def test_health_check(self, client: TestClient) -> None:
@@ -22,6 +25,33 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+    def test_ai_health_check_safe_response(self, client: TestClient) -> None:
+        response = client.get("/api/v1/health/ai")
+        assert response.status_code == 200
+        data = response.json()
+        assert "configured" in data
+        assert "api_key" not in data
+        assert "secret" not in data
+
+    def test_ai_chat_missing_provider_returns_json_error(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "AI_PROVIDER", "")
+        monkeypatch.setattr(settings, "GROQ_API_KEY", "")
+        monkeypatch.setattr(settings, "DEFAULT_GROQ_API_KEY", "")
+        monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
+        monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
+        monkeypatch.setattr(settings, "OLLAMA_BASE_URL", "")
+
+        response = client.post(
+            "/api/v1/ai/chat",
+            json={"messages": [{"role": "user", "content": "hello"}], "stream": False},
+        )
+        assert response.status_code == 503
+        detail = response.json()["detail"]
+        assert detail["code"] == "AI_PROVIDER_NOT_CONFIGURED"
+        assert detail["error"] == "AI provider is not configured"
 
     def test_root_endpoint(self, client: TestClient) -> None:
         response = client.get("/")
@@ -188,6 +218,97 @@ class TestAPIEndpoints:
         assert "total_users" in data
         assert "total_feedback_issues" in data
         assert "open_feedback_issues" in data
+        assert "latest_signups" in data
+        assert "recent_feedback" in data
+        assert "users" in data
+
+    def test_admin_stats_includes_user_analytics_and_submitter_name(self, client: TestClient) -> None:
+        MockTableQuery._store["user_profiles"] = [
+            {
+                "id": "mock-user-id",
+                "email": "regular_user@example.com",
+                "full_name": "Regular User",
+                "avatar_url": "https://example.com/avatar.png",
+                "provider": "google",
+                "first_seen_at": "2026-06-26T00:00:00+00:00",
+                "last_seen_at": "2026-06-26T01:00:00+00:00",
+                "created_at": "2026-06-26T00:00:00+00:00",
+                "updated_at": "2026-06-26T01:00:00+00:00",
+            }
+        ]
+        MockTableQuery._store["feedback_issues"] = [
+            {
+                "id": "feedback-1",
+                "user_id": "mock-user-id",
+                "email": "regular_user@example.com",
+                "category": "bug_report",
+                "title": "Broken chart",
+                "description": "The chart is blank",
+                "status": "open",
+                "priority": "normal",
+                "created_at": "2026-06-26T02:00:00+00:00",
+                "updated_at": "2026-06-26T02:00:00+00:00",
+            }
+        ]
+        MockTableQuery._store["watchlists"] = [
+            {"id": "watch-1", "user_id": "mock-user-id", "ticker": "AAPL"}
+        ]
+        MockTableQuery._store["search_history"] = [
+            {"id": "search-1", "user_id": "mock-user-id", "ticker": "AAPL"}
+        ]
+
+        response = client.get(
+            "/api/v1/admin/stats",
+            headers={"Authorization": "Bearer admin-token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_users"] == 1
+        assert data["latest_signups"][0]["full_name"] == "Regular User"
+        assert data["users"][0]["total_feedback_count"] == 1
+        assert data["users"][0]["total_watchlist_items"] == 1
+        assert data["users"][0]["total_searches"] == 1
+        assert data["recent_feedback"][0]["submitter_name"] == "Regular User"
+        assert data["recent_feedback"][0]["submitter_avatar_url"] == "https://example.com/avatar.png"
+
+    def test_admin_feedback_resolves_submitter_by_email_without_user_id(self, client: TestClient) -> None:
+        MockTableQuery._store["user_profiles"] = [
+            {
+                "id": "profile-1",
+                "email": "email.only@example.com",
+                "full_name": "Email Only User",
+                "provider": "google",
+                "first_seen_at": "2026-06-26T00:00:00+00:00",
+                "last_seen_at": "2026-06-26T00:00:00+00:00",
+                "created_at": "2026-06-26T00:00:00+00:00",
+                "updated_at": "2026-06-26T00:00:00+00:00",
+            }
+        ]
+        MockTableQuery._store["feedback_issues"] = [
+            {
+                "id": "feedback-email-only",
+                "user_id": None,
+                "email": "email.only@example.com",
+                "category": "feature_request",
+                "title": "Add export",
+                "description": "Please add export",
+                "status": "open",
+                "priority": "normal",
+                "created_at": "2026-06-26T02:00:00+00:00",
+                "updated_at": "2026-06-26T02:00:00+00:00",
+            }
+        ]
+
+        response = client.get(
+            "/api/v1/admin/feedback",
+            headers={"Authorization": "Bearer admin-token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data[0]["submitter_name"] == "Email Only User"
+        assert data[0]["email"] == "email.only@example.com"
 
     def test_user_count_endpoint_does_not_expose_emails(self, client: TestClient) -> None:
         response = client.get(

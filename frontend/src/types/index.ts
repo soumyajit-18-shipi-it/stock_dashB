@@ -89,13 +89,33 @@ export interface FeedbackIssue {
   priority: string;
   created_at: string;
   updated_at: string;
+  submitter_name?: string;
+  submitter_avatar_url?: string;
+  submitter_provider?: string;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+  provider?: string;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  total_feedback_count?: number;
+  total_watchlist_items?: number;
+  total_searches?: number;
 }
 
 export interface AdminStats {
   total_users: number;
   new_users_today: number;
   new_users_this_week: number;
+  active_today: number;
   total_feedback_issues: number;
   open_feedback_issues: number;
+  latest_signups: AdminUserSummary[];
+  recent_feedback: FeedbackIssue[];
+  users: AdminUserSummary[];
   last_updated: string;
 }

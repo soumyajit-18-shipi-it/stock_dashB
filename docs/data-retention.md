@@ -4,7 +4,7 @@
 
 - Watchlists and search history: retain until the user deletes them or account deletion is requested.
 - Prediction records: retain until deleted by the user/maintainer policy.
-- AI provider keys: stored only in browser `localStorage`; users can clear browser storage.
+- AI provider keys: stored only in backend deployment environments such as Railway. The browser does not store AI provider keys.
 
 ## Dataset Rows
 

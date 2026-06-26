@@ -170,13 +170,31 @@ CREATE POLICY "Users can update own profile" ON public.user_profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.user_profiles (id, email, full_name, avatar_url, provider)
+    INSERT INTO public.user_profiles (
+        id,
+        email,
+        full_name,
+        avatar_url,
+        provider,
+        first_seen_at,
+        last_seen_at,
+        created_at,
+        updated_at
+    )
     VALUES (
         NEW.id,
         NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
+        COALESCE(
+            NEW.raw_user_meta_data->>'full_name',
+            NEW.raw_user_meta_data->>'name',
+            split_part(NEW.email, '@', 1)
+        ),
         COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', ''),
-        COALESCE(NEW.app_metadata->>'provider', 'google')
+        COALESCE(NEW.raw_app_meta_data->>'provider', 'google'),
+        COALESCE(NEW.created_at, now()),
+        now(),
+        COALESCE(NEW.created_at, now()),
+        now()
     )
     ON CONFLICT (id) DO UPDATE
     SET 
@@ -193,8 +211,46 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Create the trigger on auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
+    AFTER INSERT OR UPDATE ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Backfill existing Supabase Auth users into public.user_profiles.
+-- Safe to paste and run from the Supabase Web Dashboard SQL Editor.
+INSERT INTO public.user_profiles (
+    id,
+    email,
+    full_name,
+    avatar_url,
+    provider,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at
+)
+SELECT
+    u.id,
+    u.email,
+    COALESCE(
+        u.raw_user_meta_data->>'full_name',
+        u.raw_user_meta_data->>'name',
+        split_part(u.email, '@', 1)
+    ) AS full_name,
+    COALESCE(u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture', '') AS avatar_url,
+    COALESCE(u.raw_app_meta_data->>'provider', 'google') AS provider,
+    COALESCE(u.created_at, now()) AS first_seen_at,
+    now() AS last_seen_at,
+    COALESCE(u.created_at, now()) AS created_at,
+    now() AS updated_at
+FROM auth.users u
+ON CONFLICT (id) DO UPDATE
+SET
+    email = EXCLUDED.email,
+    full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.user_profiles.full_name),
+    avatar_url = COALESCE(NULLIF(EXCLUDED.avatar_url, ''), public.user_profiles.avatar_url),
+    provider = COALESCE(NULLIF(EXCLUDED.provider, ''), public.user_profiles.provider, 'google'),
+    first_seen_at = COALESCE(public.user_profiles.first_seen_at, EXCLUDED.first_seen_at),
+    last_seen_at = GREATEST(public.user_profiles.last_seen_at, EXCLUDED.last_seen_at),
+    updated_at = now();
 
 -- Trigger for updating updated_at on user_profiles
 CREATE OR REPLACE FUNCTION public.handle_update_user_profiles()
@@ -228,6 +284,7 @@ CREATE TABLE IF NOT EXISTS public.feedback_issues (
 
 -- Indexes for feedback_issues
 CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON public.feedback_issues(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_email ON public.feedback_issues(email);
 CREATE INDEX IF NOT EXISTS idx_feedback_category ON public.feedback_issues(category);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON public.feedback_issues(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON public.feedback_issues(created_at);
@@ -260,3 +317,14 @@ DROP TRIGGER IF EXISTS on_feedback_issue_updated ON public.feedback_issues;
 CREATE TRIGGER on_feedback_issue_updated
     BEFORE UPDATE ON public.feedback_issues
     FOR EACH ROW EXECUTE FUNCTION public.handle_update_feedback_issues();
+
+-- Backfill feedback rows created before user_id was recorded.
+-- Server-side admin endpoints also match by email as a fallback.
+UPDATE public.feedback_issues f
+SET
+    user_id = p.id,
+    updated_at = now()
+FROM public.user_profiles p
+WHERE f.user_id IS NULL
+  AND f.email IS NOT NULL
+  AND lower(f.email) = lower(p.email);

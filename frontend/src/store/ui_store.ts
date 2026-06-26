@@ -43,8 +43,8 @@ function readConfig(): AIProviderConfig {
     const provider = parsed.provider || defaultConfig.provider;
     return {
       provider,
-      apiKey: parsed.apiKey || '',
-      baseUrl: parsed.baseUrl || (provider === 'ollama' ? defaultConfig.baseUrl : ''),
+      apiKey: '',
+      baseUrl: '',
       selectedModel: parsed.selectedModel || parsed.model || '',
     };
   } catch {
@@ -81,10 +81,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setAiProviderConfig: (aiProviderConfig) => {
     const normalized = {
       provider: aiProviderConfig.provider,
-      apiKey: aiProviderConfig.apiKey || '',
-      baseUrl:
-        aiProviderConfig.baseUrl ||
-        (aiProviderConfig.provider === 'ollama' ? defaultConfig.baseUrl : ''),
+      apiKey: '',
+      baseUrl: '',
       selectedModel: aiProviderConfig.selectedModel || '',
     };
     localStorage.setItem('ai_provider_config', JSON.stringify(normalized));

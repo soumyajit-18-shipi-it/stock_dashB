@@ -11,15 +11,12 @@ import {
 } from '../services/aiProviderService';
 import { useUIStore, type AIProviderConfig } from '../store/ui_store';
 
-const providerOptions: { value: 'ollama' | 'auto'; labelKey: string }[] = [
-  { value: 'ollama', labelKey: 'providerOllama' },
-  { value: 'auto', labelKey: 'Auto-Detect / App Default' },
+const providerOptions: { value: 'auto'; labelKey: string }[] = [
+  { value: 'auto', labelKey: 'Backend Provider' },
 ];
 
 function canFetchModels(config: AIProviderConfig) {
-  if (config.provider === 'ollama') return Boolean(config.baseUrl);
-  // Auto-detect is always available because it fallbacks to backend
-  return true;
+  return config.provider === 'auto';
 }
 
 export function AISettingsModal() {
@@ -97,15 +94,15 @@ export function AISettingsModal() {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiSettingsOpen, form.provider, form.apiKey, form.baseUrl, t]);
+  }, [aiSettingsOpen, form.provider, t]);
 
   if (!aiSettingsOpen) return null;
 
-  const handleProviderChange = (value: 'ollama' | 'auto') => {
+  const handleProviderChange = (value: 'auto') => {
     setForm({
       provider: value,
-      apiKey: form.apiKey || '',
-      baseUrl: value === 'ollama' ? 'http://localhost:11434' : '',
+      apiKey: '',
+      baseUrl: '',
       selectedModel: '',
     });
     setModels([]);
@@ -159,54 +156,15 @@ export function AISettingsModal() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {opt.value === 'auto' ? opt.labelKey : t(opt.labelKey)}
+                {opt.labelKey}
               </button>
             ))}
           </div>
 
-          {form.provider === 'ollama' ? (
-            <label className="block animate-in fade-in slide-in-from-top-2">
-              <span className="mb-1 block text-sm text-slate-300">{t('baseUrl')}</span>
-              <input
-                value={form.baseUrl || ''}
-                onChange={(e) => update({ baseUrl: e.target.value, selectedModel: '' })}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                placeholder="http://localhost:11434"
-              />
-            </label>
-          ) : (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-              <label className="block">
-                <span className="mb-1 block text-sm text-slate-300">API Key (Optional)</span>
-                <input
-                  type="password"
-                  value={form.apiKey || ''}
-                  onChange={(e) => update({ apiKey: e.target.value, selectedModel: '' })}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                  placeholder="Paste your API key or leave blank for App Default"
-                />
-                <p className="mt-2 text-xs text-slate-400">
-                  If blank, the application will use its default provider (Groq/Llama-3).
-                </p>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-sm text-slate-300">
-                  Custom Endpoint (Optional)
-                </span>
-                <input
-                  type="text"
-                  value={form.baseUrl || ''}
-                  onChange={(e) => update({ baseUrl: e.target.value, selectedModel: '' })}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                  placeholder="e.g. https://api.together.xyz/v1"
-                />
-                <p className="mt-2 text-xs text-slate-400">
-                  Advanced: Use for custom OpenAI-compatible providers.
-                </p>
-              </label>
-            </div>
-          )}
+          <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-sm text-slate-300">
+            AI provider secrets are configured only on the backend. The browser calls the backend API
+            and never stores provider API keys.
+          </div>
 
           <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between mb-2">

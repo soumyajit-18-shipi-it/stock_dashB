@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   buildChatMessages,
+  fetchAIHealth,
   isAIConfigured,
   providerLabelKey,
   streamChat,
@@ -264,6 +265,8 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
+  const [lastFailedQuestion, setLastFailedQuestion] = useState('');
+  const [pendingAssistantId, setPendingAssistantId] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -300,7 +303,7 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
 
   const ask = async (question: string, isRetry = false) => {
     if (!configured) {
-      setAiSettingsOpen(true);
+      setError('AI provider is not configured on the backend.');
       return;
     }
 
@@ -320,15 +323,9 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
       timestamp: Date.now(),
     };
     const assistantId = messageId();
-    const assistantMessage: UIMessage = {
-      id: assistantId,
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-    };
 
     updatedMessages = [...updatedMessages, userMessage];
-    setMessages([...updatedMessages, assistantMessage]);
+    setMessages(updatedMessages);
 
     saveHistory(stockData.profile.ticker, updatedMessages);
 
@@ -340,13 +337,35 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
 
     setInput('');
     setError('');
+    setLastFailedQuestion('');
     setStreaming(true);
+    setPendingAssistantId(assistantId);
 
     let fullContent = '';
+    let assistantCreated = false;
     try {
+      const health = await fetchAIHealth(controller.signal);
+      if (!health.configured) {
+        throw new Error('AI provider is not configured on the backend.');
+      }
+
       await streamChat(aiProviderConfig, nextMessages, controller.signal, (token) => {
         if (mountedRef.current && !controller.signal.aborted) {
           fullContent += token;
+          if (!assistantCreated && fullContent.trim()) {
+            assistantCreated = true;
+            setPendingAssistantId('');
+            setMessages((current) => [
+              ...current,
+              {
+                id: assistantId,
+                role: 'assistant',
+                content: fullContent,
+                timestamp: Date.now(),
+              },
+            ]);
+            return;
+          }
           setMessages((current) =>
             current.map((message) =>
               message.id === assistantId ? { ...message, content: fullContent } : message
@@ -355,26 +374,42 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
         }
       });
 
+      if (!fullContent.trim()) {
+        throw new Error('The AI response was empty. Please try again.');
+      }
+
       if (mountedRef.current && !controller.signal.aborted) {
         saveHistory(stockData.profile.ticker, [
           ...updatedMessages,
-          { ...assistantMessage, content: fullContent },
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: fullContent,
+            timestamp: Date.now(),
+          },
         ]);
       }
     } catch (err) {
       if (mountedRef.current && !(err instanceof DOMException && err.name === 'AbortError')) {
         const message = err instanceof Error ? err.message : t('aiError');
         setError(message);
+        setLastFailedQuestion(question);
         if (fullContent) {
           saveHistory(stockData.profile.ticker, [
             ...updatedMessages,
-            { ...assistantMessage, content: fullContent },
+            {
+              id: assistantId,
+              role: 'assistant',
+              content: fullContent,
+              timestamp: Date.now(),
+            },
           ]);
         }
       }
     } finally {
       if (mountedRef.current && abortRef.current === controller) {
         setStreaming(false);
+        setPendingAssistantId('');
         abortRef.current = null;
       }
     }
@@ -384,6 +419,7 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
     if (abortRef.current) {
       abortRef.current.abort();
       setStreaming(false);
+      setPendingAssistantId('');
       abortRef.current = null;
     }
   };
@@ -472,6 +508,7 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
           ) : (
             messages.map((message, idx) => {
               const prevMessage = idx > 0 ? messages[idx - 1] : undefined;
+              if (!message.content.trim()) return null;
               return (
                 <div
                   key={message.id}
@@ -492,7 +529,7 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
                     content={message.content}
                     isStreaming={streaming && idx === messages.length - 1}
                   />
-                  {message.role === 'assistant' && !streaming && (
+                  {message.role === 'assistant' && !streaming && message.content.trim() && (
                     <div className="mt-3 flex gap-3 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => navigator.clipboard.writeText(message.content)}
@@ -501,7 +538,7 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
                       >
                         <Copy className="h-3 w-3" /> Copy
                       </button>
-                      {idx === messages.length - 1 && prevMessage && (
+                      {idx === messages.length - 1 && prevMessage?.role === 'user' && prevMessage.content.trim() && (
                         <button
                           onClick={() => ask(prevMessage.content, true)}
                           className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white"
@@ -516,10 +553,23 @@ export function AskAIDrawer({ stockData }: AskAIDrawerProps) {
               );
             })
           )}
+          {streaming && pendingAssistantId && (
+            <div className="mr-8 rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-slate-100">
+              <TypingIndicator />
+            </div>
+          )}
           {error && (
             <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
               <p className="font-semibold mb-1">Error</p>
               <p>{error}</p>
+              {lastFailedQuestion && !streaming && (
+                <button
+                  onClick={() => ask(lastFailedQuestion)}
+                  className="mt-3 inline-flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-1 text-xs font-medium text-red-100 hover:bg-red-500/30"
+                >
+                  <RefreshCcw className="h-3 w-3" /> Retry
+                </button>
+              )}
             </div>
           )}
         </div>

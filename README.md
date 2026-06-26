@@ -51,14 +51,21 @@ SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_EMAILS=routsoumyajit18@gmail.com,soumyajitrout24@gmail.com
 GOOGLE_AUTH_ENABLED=true
+FRONTEND_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174
 FINNHUB_API_KEY=your_finnhub_key
-DEFAULT_GROQ_API_KEY=your-groq-key-or-leave-empty-for-ollama
+AI_PROVIDER=groq
+GROQ_API_KEY=your-groq-key
+DEFAULT_GROQ_API_KEY=your-groq-key
+AI_MODEL=llama-3.1-8b-instant
+AI_REQUEST_TIMEOUT_SECONDS=45
 ```
 
 Create a `.env` in the `frontend/` folder:
 ```env
 VITE_API_URL=http://localhost:8000/api/v1
 VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_APP_URL=http://localhost:5173
 VITE_ADMIN_EMAILS=routsoumyajit18@gmail.com,soumyajitrout24@gmail.com
@@ -68,20 +75,53 @@ VITE_ADMIN_EMAILS=routsoumyajit18@gmail.com,soumyajitrout24@gmail.com
 Do not use `http://localhost:5173/api/v1` for backend requests. The Vite dev server
 runs the frontend only.
 
-### 2. Database Setup (No CLI Required)
+### 2. Database Setup (Supabase CLI First)
 
-To initialize the database schema in your Supabase Web Dashboard:
-1. Open the root-level consolidated SQL file [supabase_setup.sql](file:///C:/Users/soumy/stock_dashB/supabase_setup.sql).
-2. Copy its entire contents.
-3. Open your **Supabase Web Dashboard** -> **SQL Editor** -> **New Query**.
-4. Paste the SQL and click **Run**.
+Supabase CLI migrations are the primary database workflow:
 
-*Note: The local Supabase CLI is entirely optional. The primary, recommended setup path is running the consolidated SQL via the Web Dashboard SQL Editor.*
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+npx supabase gen types typescript --linked --schema public > frontend/src/types/supabase.ts
+```
+
+Do not run `npx supabase db reset` against hosted production data. Google OAuth Client ID/Secret are still configured in the Supabase Dashboard under Authentication providers.
+
+The root-level `supabase_setup.sql` and `supabase_admin_dashboard_fix.sql` files remain manual fallback scripts for the Supabase Dashboard SQL Editor.
 
 #### Web Dashboard Verification Check:
 * Go to the **Table Editor** on your Supabase Web Dashboard.
 * Confirm that the `public.user_profiles` and `public.feedback_issues` tables exist.
 * Verify user signup tracking works by running `select count(*) as total_users from public.user_profiles;` in the SQL Editor.
+* If Total Users is `0` after existing users have signed in, run the root-level `supabase_admin_dashboard_fix.sql` in the SQL Editor to backfill `auth.users` into `public.user_profiles` and relink old feedback rows by email.
+
+Useful verification queries:
+
+```sql
+select count(*) as total_users
+from public.user_profiles;
+```
+
+```sql
+select email, full_name, provider, first_seen_at, last_seen_at
+from public.user_profiles
+order by first_seen_at desc;
+```
+
+```sql
+select f.title, f.category, f.status, f.email, p.full_name, f.created_at
+from public.feedback_issues f
+left join public.user_profiles p on p.id = f.user_id
+order by f.created_at desc;
+```
+
+```sql
+select date(first_seen_at) as signup_date, count(*) as signups
+from public.user_profiles
+group by date(first_seen_at)
+order by signup_date desc;
+```
 
 ### 3. Backend Setup (FastAPI)
 ```bash
@@ -109,21 +149,31 @@ The frontend sends `Authorization: Bearer <Supabase access token>` to protected
 backend endpoints. It never sends the Supabase anon key, refresh token, or service
 role key as a bearer token.
 
+Frontend Supabase config uses `VITE_SUPABASE_PUBLISHABLE_KEY` first and falls back to `VITE_SUPABASE_ANON_KEY`. The backend service role key remains server-side only.
+
 User-owned data is saved per Supabase authenticated user:
 * Watchlist rows use `user_id = auth.users.id`.
 * Search history rows use `user_id = auth.users.id`.
 * Feedback rows use `user_id = auth.users.id`.
 * Admin stats are available only when the authenticated email is in `ADMIN_EMAILS`.
+* Admin stats include user names/emails/avatars only for allowlisted admin sessions.
 
 ### 6. Interactive UI Tools
 The dashboard offers separate UI widgets at the bottom:
 * **Ask AI:** Accessible via the Navbar or a floating bottom-right action button (`bottom-5`).
 * **Report Issue / Request Feature:** Accessible via a smaller, clean dark button at the bottom-right (`bottom-20`), ensuring no overlap with core chart tools. If logged out, it prompts the user to log in with Google to submit reports.
 
-Ask AI uses the backend AI proxy for app-default providers. If no Groq key is
-configured and Ollama is not reachable, it returns: `AI provider is not configured.
-Please set DEFAULT_GROQ_API_KEY or configure Ollama.` API keys remain backend-only
-unless a user explicitly enters their own key in local browser settings.
+Ask AI and AI Report Generator use backend AI routes only. AI provider keys are
+configured in the backend environment, never in frontend `.env` files or browser
+storage. If Railway is missing `GROQ_API_KEY` or `DEFAULT_GROQ_API_KEY`, the API
+returns `AI_PROVIDER_NOT_CONFIGURED` with a safe setup hint. Financial questions
+are answered as educational analysis, risks, and limitations, not personalized
+investment advice.
+
+Production deployment uses Railway for the backend and Vercel for the frontend.
+Set Vercel `VITE_API_URL` to the Railway backend URL ending in `/api/v1`, and set
+Railway `CORS_ORIGINS` to include `https://smart-stock18.vercel.app`. See
+`docs/deployment.md` for the full variable lists and troubleshooting checklist.
 
 Stock data uses Yahoo Finance for history/quote data and Finnhub plus Yahoo
 fallbacks for company profile fields. Backend caches quote/profile/history and

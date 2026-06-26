@@ -1,0 +1,17 @@
+node_modules/
+.venv313/
+venv/
+.venv/
+frontend/node_modules/
+dist/
+frontend/dist/
+tmp_pytest/
+data/
+.git/
+.github/
+.gitlab/
+backend/
+supabase/
+docs/
+reports/
+tests/

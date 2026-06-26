@@ -9,6 +9,7 @@ from core.config import settings
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from services.ai_service import ai_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stock_dashboard")
@@ -27,14 +28,18 @@ def startup_event() -> None:
     logger.info("Local API: http://localhost:8000")
     logger.info("API docs:  http://localhost:8000/docs")
     logger.info("Note: http://0.0.0.0:8000 is a network bind address. Use localhost:8000 in your browser.")
+    ai_status = ai_service.startup_diagnostics()
+    logger.info("AI provider configured: %s", "yes" if ai_status["configured"] else "no")
+    logger.info("AI provider name: %s", ai_status.get("provider") or "none")
+    logger.info("AI model name: %s", ai_status.get("model") or "none")
     logger.info("=" * 60)
 
 
 # Set all CORS enabled origins
-if settings.CORS_ORIGINS:
+if settings.cors_origins_list:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.CORS_ORIGINS],
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
