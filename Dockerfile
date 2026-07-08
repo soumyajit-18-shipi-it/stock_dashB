@@ -24,7 +24,7 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Copy backend code
 COPY backend/ ./backend/
-COPY models/ ./models/
+COPY backend/models/ ./models/
 COPY run.py ./
 
 # Set environment variables

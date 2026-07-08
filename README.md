@@ -165,14 +165,14 @@ The dashboard offers separate UI widgets at the bottom:
 
 Ask AI and AI Report Generator use backend AI routes only. AI provider keys are
 configured in the backend environment, never in frontend `.env` files or browser
-storage. If Railway is missing `GROQ_API_KEY` or `DEFAULT_GROQ_API_KEY`, the API
+storage. If Render is missing `GROQ_API_KEY` or `DEFAULT_GROQ_API_KEY`, the API
 returns `AI_PROVIDER_NOT_CONFIGURED` with a safe setup hint. Financial questions
 are answered as educational analysis, risks, and limitations, not personalized
 investment advice.
 
-Production deployment uses Railway for the backend and Vercel for the frontend.
-Set Vercel `VITE_API_URL` to the Railway backend URL ending in `/api/v1`, and set
-Railway `CORS_ORIGINS` to include `https://smart-stock18.vercel.app`. See
+Production deployment uses Render for the backend and Vercel for the frontend.
+Set Vercel `VITE_API_URL` to the Render backend URL ending in `/api/v1`, and set
+Render `CORS_ORIGINS` to include `https://smart-stock18.vercel.app`. See
 `docs/deployment.md` for the full variable lists and troubleshooting checklist.
 
 Stock data uses Yahoo Finance for history/quote data and Finnhub plus Yahoo

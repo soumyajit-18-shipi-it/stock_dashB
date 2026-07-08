@@ -7,17 +7,17 @@
 
 ## Deployment Platforms
 
-### 1. Backend (Railway)
-- Deployed via `railway.json` and `nixpacks.toml`.
+### 1. Backend (Render)
+- Deployed via `render.yaml`.
 - **Build Command:** Installs Python 3.12 and `requirements.txt`.
-- **Start Command:** `python main.py`.
+- **Start Command:** `python run.py`.
 - **Critical Config:** `CORS_ORIGINS` must include the frontend URL.
 
 ### 2. Frontend (Vercel)
 - **Build Command:** `npm run build`.
 - **Output Directory:** `dist`.
 - **Rewrites (`vercel.json`):**
-  - Proxies `/api/v1/*` to the Railway backend URL to avoid CORS and simplify client-side configuration.
+  - Proxies `/api/v1/*` to the Render backend URL to avoid CORS and simplify client-side configuration.
 
 ## Environment Variables
 
@@ -33,5 +33,5 @@
 
 ## Build Steps
 1. **Database:** Run Supabase migrations.
-2. **Backend:** Push to Railway (triggers Nixpacks build).
+2. **Backend:** Push to the Render-connected branch or trigger a Render deploy.
 3. **Frontend:** Push to Vercel (triggers Vite build).
