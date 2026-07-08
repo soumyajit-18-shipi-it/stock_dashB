@@ -1,3 +1,5 @@
+variables:
+  GIT_DEPTH: 0
 stages:
   - format
   - lint
@@ -177,24 +179,7 @@ coverage:python:
         path: coverage.xml
   coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
 
-# ---------------------------------------------------------------------------
-# BUILD STAGE
-# ---------------------------------------------------------------------------
 
-build:docker:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
-    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
-  only:
-    - main
-
-# ---------------------------------------------------------------------------
 # RELEASE STAGE
 # ---------------------------------------------------------------------------
 

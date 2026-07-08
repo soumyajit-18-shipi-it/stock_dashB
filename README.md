@@ -212,6 +212,8 @@ The project features a full-lifecycle **GitLab CI** pipeline with the following 
 - **Feature Engineering:** Automated technical indicators (MA7, MA21, RSI, MACD, etc.).
 - **Evaluation:** Real-time metrics (RMSE, MAE, R2) for every prediction.
 
+added Pipeline runner.
+
 ## ⚠️ Known Issues
 - **API Rate Limits:** Finnhub API limits apply to the free tier (60 calls/min).
 - **Data Delay:** Yahoo Finance data may be delayed by 15-20 minutes for certain exchanges.
