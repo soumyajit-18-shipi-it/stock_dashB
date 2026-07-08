@@ -6,18 +6,15 @@ class DataCache:
         self._cache: dict[str, Any] | None = None
 
     def get_cache(self) -> dict[str, Any]:
-        if self._cache is not None:
-            return self._cache
-        self._cache = {}
+        if self._cache is None:
+            self._cache = {}
         return self._cache
 
     def get(self, key: str) -> Any:
-        cache = self.get_cache()
-        return cache.get(key)
+        return self.get_cache().get(key)
 
     def set(self, key: str, value: Any) -> None:
-        cache = self.get_cache()
-        cache[key] = value
+        self.get_cache()[key] = value
 
     def clear(self) -> None:
         self._cache = None

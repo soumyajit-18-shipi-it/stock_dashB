@@ -1,12 +1,12 @@
 # Deployment
 
-Production uses Railway for the FastAPI backend and Vercel for the Vite frontend.
+Production uses Render for the FastAPI backend and Vercel for the Vite frontend.
 
-## Railway Backend
+## Render Backend
 
-Railway starts the backend with `python run.py`. `run.py` binds to `0.0.0.0` and reads the `PORT` environment variable injected by Railway.
+Render starts the backend with `python run.py`. `run.py` binds to `0.0.0.0` and reads the `PORT` environment variable injected by Render.
 
-Required Railway variables:
+Required Render variables:
 
 ```env
 APP_ENV=production
@@ -30,8 +30,8 @@ Do not set AI provider keys in Vercel or the frontend. Ask AI and AI Report Gene
 Health checks:
 
 ```powershell
-Invoke-WebRequest https://YOUR-RAILWAY-BACKEND-DOMAIN.up.railway.app/api/v1/health -UseBasicParsing
-Invoke-WebRequest https://YOUR-RAILWAY-BACKEND-DOMAIN.up.railway.app/api/v1/health/ai -UseBasicParsing
+Invoke-WebRequest https://stock-dashboard-backend.onrender.com/api/v1/health -UseBasicParsing
+Invoke-WebRequest https://stock-dashboard-backend.onrender.com/api/v1/health/ai -UseBasicParsing
 ```
 
 ## Vercel Frontend
@@ -41,7 +41,7 @@ Vercel builds from the repo root using `cd frontend && npm install && npm run bu
 Required Vercel variables:
 
 ```env
-VITE_API_URL=https://YOUR-RAILWAY-BACKEND-DOMAIN.up.railway.app/api/v1
+VITE_API_URL=https://stock-dashboard-backend.onrender.com/api/v1
 VITE_SUPABASE_URL=https://baiveavufaizzlsftpnz.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 VITE_APP_URL=https://smart-stock18.vercel.app
@@ -53,9 +53,9 @@ Do not put `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `DEFAULT_GROQ_API_KEY`, 
 ## Troubleshooting
 
 - Blank AI message: backend returned zero tokens or an SSE error. The frontend now avoids appending empty assistant messages and shows a retryable error.
-- `AI provider is not configured`: set `GROQ_API_KEY` or `DEFAULT_GROQ_API_KEY` in Railway and redeploy.
-- `All connection attempts failed`: the backend could not reach the AI provider. Check Railway outbound network, provider status, key validity, and `AI_REQUEST_TIMEOUT_SECONDS`.
-- CORS error: include `https://smart-stock18.vercel.app` in Railway `CORS_ORIGINS`.
-- Wrong API URL: Vercel `VITE_API_URL` must point to the Railway public domain ending in `/api/v1`, not localhost and not `0.0.0.0`.
+- `AI provider is not configured`: set `GROQ_API_KEY` or `DEFAULT_GROQ_API_KEY` in Render and redeploy.
+- `All connection attempts failed`: the backend could not reach the AI provider. Check Render outbound network, provider status, key validity, and `AI_REQUEST_TIMEOUT_SECONDS`.
+- CORS error: include `https://smart-stock18.vercel.app` in Render `CORS_ORIGINS`.
+- Wrong API URL: Vercel `VITE_API_URL` must point to the Render public domain ending in `/api/v1`, not localhost and not `0.0.0.0`.
 
 Financial questions are answered as educational analysis only. The AI must discuss risks and limitations and should not provide personalized investment advice.
