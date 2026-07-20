@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import httpx
 from core.config import settings
-from services.symbol_converter import to_finnhub_symbol, is_indian_ticker
+from services.symbol_converter import to_finnhub_symbol
 
 import logging
 logger = logging.getLogger("stock_dashboard")

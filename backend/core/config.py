@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         defaults = [
+            "https://smart-stock18.vercel.app",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
             "http://localhost:5174",
@@ -78,7 +79,12 @@ class Settings(BaseSettings):
             else:
                 origins.extend(item.strip() for item in raw.split(","))
         origins.extend(defaults)
-        return list(dict.fromkeys(origin for origin in origins if origin))
+        cleaned_origins = (
+            origin.strip().rstrip("/")
+            for origin in origins
+            if origin and origin.strip() != "*"
+        )
+        return list(dict.fromkeys(origin for origin in cleaned_origins if origin))
 
     class Config:
         case_sensitive = True

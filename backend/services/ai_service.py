@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import httpx
-from typing import List, Dict, Optional, AsyncGenerator, cast
+from typing import List, Dict, Optional, AsyncGenerator
 
 from core.config import settings
 

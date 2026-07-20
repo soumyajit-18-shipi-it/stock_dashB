@@ -57,7 +57,12 @@ class TestAPIEndpoints:
         response = client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert "message" in data
+        assert data == {"status": "ok"}
+
+    def test_render_health_endpoint(self, client: TestClient) -> None:
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
 
     @pytest.mark.integration
     def test_stock_endpoint_invalid_ticker(self, client: TestClient) -> None:
@@ -321,4 +326,3 @@ class TestAPIEndpoints:
         assert "emails" not in data
         assert "email" not in data
         assert "user_profiles" not in data
-

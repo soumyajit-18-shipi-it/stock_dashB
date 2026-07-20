@@ -8,6 +8,7 @@ from api.routes import router
 from core.config import settings
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from services.ai_service import ai_service
 
@@ -63,9 +64,6 @@ async def log_requests(
 app.include_router(router, prefix=settings.API_V1_STR)
 
 
-from fastapi.responses import FileResponse, HTMLResponse
-
-
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> FileResponse:
     base_dir = Path(__file__).resolve().parents[1]
@@ -84,19 +82,13 @@ async def favicon() -> FileResponse:
 
 
 @app.get("/")  # nosemgrep
-async def root(request: Request) -> Any:
-    accept = request.headers.get("accept", "")
-    if "text/html" in accept:
-        frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
-        if frontend_dist.exists():
-            index_file = frontend_dist / "index.html"
-            if index_file.exists():
-                return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
-    return {
-        "message": "Welcome to Stock Intelligence Dashboard API",
-        "docs": "/docs",
-        "version": settings.VERSION,
-    }
+async def root() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health")
+async def render_health_check() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"

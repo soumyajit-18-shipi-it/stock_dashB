@@ -16,7 +16,7 @@ from typing import Any
 
 from services.finnhub_service import finnhub_service
 from services.screener_provider import fetch_company_profile
-from services.symbol_converter import is_indian_ticker, to_finnhub_symbol
+from services.symbol_converter import is_indian_ticker
 
 logger = logging.getLogger("stock_dashboard")
 

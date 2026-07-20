@@ -10,7 +10,8 @@
 ### 1. Backend (Render)
 - Deployed via `render.yaml`.
 - **Build Command:** Installs Python 3.12 and `requirements.txt`.
-- **Start Command:** `python run.py`.
+- **Start Command:** `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers`.
+- **Health Check Path:** `/health`.
 - **Critical Config:** `CORS_ORIGINS` must include the frontend URL.
 
 ### 2. Frontend (Vercel)
