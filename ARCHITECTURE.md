@@ -41,5 +41,5 @@ The Stock Intelligence Dashboard is a multi-tier application designed for real-t
 
 ## Deployment
 - **Frontend:** Vercel.
-- **Backend:** Railway.
+- **Backend:** Render.
 - **Database:** Supabase.

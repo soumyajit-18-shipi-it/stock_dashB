@@ -2,20 +2,46 @@ services:
   - type: web
     name: stock-dashboard-backend
     env: python
+    plan: free
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "python run.py"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers"
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.10"
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: FINNHUB_API_KEY
-        sync: false
       - key: APP_ENV
         value: "production"
       - key: FRONTEND_URL
         value: "https://smart-stock18.vercel.app"
       - key: CORS_ORIGINS
-        value: "https://smart-stock18.vercel.app"
+        value: "https://smart-stock18.vercel.app,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
+      - key: GOOGLE_AUTH_ENABLED
+        value: "true"
+      - key: AI_PROVIDER
+        value: "groq"
+      - key: AI_MODEL
+        value: "llama-3.1-8b-instant"
+      - key: AI_REQUEST_TIMEOUT_SECONDS
+        value: "45"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DEFAULT_GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OLLAMA_BASE_URL
+        sync: false

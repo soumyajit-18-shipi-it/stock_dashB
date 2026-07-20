@@ -1,4 +1,3 @@
-import re
 import logging
 
 logger = logging.getLogger("stock_dashboard")

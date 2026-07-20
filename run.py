@@ -1,4 +1,4 @@
-"""Entry point for Railway deployment."""
+"""Local fallback entry point for running the FastAPI app from the repository root."""
 
 import os
 import sys

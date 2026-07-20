@@ -128,7 +128,8 @@ order by signup_date desc;
 python -m venv .venv
 # Activate venv (Windows: .venv\Scripts\activate | Unix: source .venv/bin/activate)
 pip install -r backend/requirements.txt
-python run.py
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 *Note:* The backend binds to `0.0.0.0:8000` internally, which is a bind address. To access the backend or API docs in your browser, navigate to:
 * **Local Backend API:** [http://localhost:8000](http://localhost:8000)
@@ -193,7 +194,7 @@ flake8 .
 pylint backend
 
 # Run type checking
-mypy backend run.py
+mypy backend
 ```
 
 ## 🔄 CI/CD Pipeline

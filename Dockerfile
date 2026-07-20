@@ -32,7 +32,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/backend
 
-# Expose local default port. Railway injects PORT at runtime and run.py reads it.
+# Expose the local default port. Hosted platforms can inject PORT at runtime.
 EXPOSE 8000
 
 CMD ["python", "run.py"]
