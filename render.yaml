@@ -1,10 +1,14 @@
 services:
   - type: web
     name: stock-dashboard-backend
-    env: python
+    runtime: python
     plan: free
-    buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers"
+    repo: https://github.com/soumyajit-18-shipi-it/stock_dashB
+    branch: main
+    rootDir: backend
+    autoDeployTrigger: commit
+    buildCommand: "python -m pip install -r requirements.txt"
+    startCommand: "python -m uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers"
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
