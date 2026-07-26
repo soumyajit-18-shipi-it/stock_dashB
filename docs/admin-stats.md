@@ -89,7 +89,7 @@ GOOGLE_AUTH_ENABLED=true
 
 ## Production Notes
 
-- Admin stats are served by the Railway backend and require a Supabase access token from the Vercel frontend.
-- Vercel `VITE_API_URL` must point to the Railway backend `/api/v1` URL.
-- Railway `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
-- `ADMIN_EMAILS` must be configured consistently in Railway and Vercel.
+- Admin stats are served by the Render backend and require a Supabase access token from the Vercel frontend.
+- Vercel `VITE_API_URL` must point to the Render backend `/api/v1` URL.
+- Render `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
+- `ADMIN_EMAILS` must be configured consistently in Render and Vercel.

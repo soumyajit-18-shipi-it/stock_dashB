@@ -30,8 +30,8 @@ Do not set AI provider keys in Vercel or the frontend. Ask AI and AI Report Gene
 Health checks:
 
 ```powershell
-Invoke-WebRequest https://stock-dashboard-backend.onrender.com/api/v1/health -UseBasicParsing
-Invoke-WebRequest https://stock-dashboard-backend.onrender.com/api/v1/health/ai -UseBasicParsing
+Invoke-WebRequest https://stock-dashb.onrender.com/api/v1/health -UseBasicParsing
+Invoke-WebRequest https://stock-dashb.onrender.com/api/v1/health/ai -UseBasicParsing
 ```
 
 ## Vercel Frontend
@@ -41,7 +41,7 @@ Vercel builds from the repo root using `cd frontend && npm install && npm run bu
 Required Vercel variables:
 
 ```env
-VITE_API_URL=https://stock-dashboard-backend.onrender.com/api/v1
+VITE_API_URL=https://stock-dashb.onrender.com/api/v1
 VITE_SUPABASE_URL=https://baiveavufaizzlsftpnz.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 VITE_APP_URL=https://smart-stock18.vercel.app

@@ -55,7 +55,6 @@ We use **Zustand** for state management:
 ## 🚀 Deployment
 
 The repository includes configurations for:
-*   **Railway:** `railway.json`
 *   **Render:** `render.yaml`
 *   **Vercel:** `vercel.json`
 *   **Docker:** `Dockerfile` (Multi-stage build)

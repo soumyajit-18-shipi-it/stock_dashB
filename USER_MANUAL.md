@@ -127,6 +127,6 @@ docker-compose up --build
 
 ### Manual Deployment
 
-*   **Backend:** Can be deployed to platforms like Railway, Render, or AWS App Runner.
+*   **Backend:** Can be deployed to platforms like Render or AWS App Runner.
 *   **Frontend:** Can be deployed to Vercel, Netlify, or AWS Amplify.
 *   **Database:** Use Supabase for managed PostgreSQL and Auth.

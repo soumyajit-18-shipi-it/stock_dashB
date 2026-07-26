@@ -16,7 +16,7 @@
 - [x] Add recent signups list for admins
 - [x] Add user table/list with name/email/provider/first_seen/last_seen
 - [x] Verify feedback submitter name appears
-- [ ] Verify total users/today/weekly counts are correct
+- [x] Verify total users/today/weekly counts are correct
 - [x] Update supabase_setup.sql for web dashboard setup
 - [x] Update docs/admin-stats.md
 - [x] Run backend tests
