@@ -18,6 +18,26 @@ from schemas.stock_schema import (
     AdminUserCountResponse,
     AdminStatsResponse,
 )
+from schemas.investment_schema import (
+    InvestmentHorizon,
+    PredictionExplanationResponse,
+    RecommendationExplainRequest,
+    RecommendationExplanationResponse,
+    RecommendationResponse,
+    RiskTolerance,
+)
+from schemas.portfolio_schema import (
+    PortfolioAnalysisResponse,
+    PortfolioAnalyzeRequest,
+    PortfolioCsvRequest,
+    PortfolioCsvResponse,
+    PortfolioExplainRequest,
+    PortfolioExplanationResponse,
+    PortfolioHoldingInput,
+    PortfolioJobResponse,
+    PortfolioSaveRequest,
+    SavedPortfolioResponse,
+)
 
 __all__ = [
     "DateRangeEnum",
@@ -38,4 +58,20 @@ __all__ = [
     "FeedbackResponse",
     "AdminUserCountResponse",
     "AdminStatsResponse",
+    "InvestmentHorizon",
+    "PredictionExplanationResponse",
+    "RecommendationExplainRequest",
+    "RecommendationExplanationResponse",
+    "RecommendationResponse",
+    "RiskTolerance",
+    "PortfolioAnalysisResponse",
+    "PortfolioAnalyzeRequest",
+    "PortfolioCsvRequest",
+    "PortfolioCsvResponse",
+    "PortfolioExplainRequest",
+    "PortfolioExplanationResponse",
+    "PortfolioHoldingInput",
+    "PortfolioJobResponse",
+    "PortfolioSaveRequest",
+    "SavedPortfolioResponse",
 ]
