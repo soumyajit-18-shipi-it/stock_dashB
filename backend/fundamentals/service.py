@@ -60,7 +60,7 @@ class FundamentalService:
         self, yahoo: dict[str, Any], finnhub: dict[str, Any] | None = None
     ) -> FundamentalMetrics:
         finnhub = finnhub or {}
-        market_cap = self._number(
+        market_cap = self._market_cap(
             yahoo.get("marketCap"), finnhub.get("marketCapitalization")
         )
         free_cash_flow = self._number(yahoo.get("freeCashflow"))
@@ -70,12 +70,12 @@ class FundamentalService:
             else None
         )
         values: dict[str, float | None] = {
-            "revenue_growth": self._decimal(
+            "revenue_growth": self._provider_decimal(
                 yahoo.get("revenueGrowth"),
                 finnhub.get("revenueGrowthTTMYoy"),
                 finnhub.get("revenueGrowth3Y"),
             ),
-            "eps_growth": self._decimal(
+            "eps_growth": self._provider_decimal(
                 yahoo.get("earningsGrowth"),
                 finnhub.get("epsGrowthTTMYoy"),
                 finnhub.get("epsGrowth3Y"),
@@ -84,10 +84,10 @@ class FundamentalService:
                 yahoo.get("debtToEquity"),
                 finnhub.get("totalDebt/totalEquityAnnual"),
             ),
-            "return_on_equity": self._decimal(
+            "return_on_equity": self._provider_decimal(
                 yahoo.get("returnOnEquity"), finnhub.get("roeTTM")
             ),
-            "return_on_assets": self._decimal(
+            "return_on_assets": self._provider_decimal(
                 yahoo.get("returnOnAssets"), finnhub.get("roaTTM")
             ),
             "current_ratio": self._number(
@@ -96,11 +96,11 @@ class FundamentalService:
             "quick_ratio": self._number(
                 yahoo.get("quickRatio"), finnhub.get("quickRatioAnnual")
             ),
-            "operating_margin": self._decimal(
+            "operating_margin": self._provider_decimal(
                 yahoo.get("operatingMargins"),
                 finnhub.get("operatingMarginTTM"),
             ),
-            "profit_margin": self._decimal(
+            "profit_margin": self._provider_decimal(
                 yahoo.get("profitMargins"), finnhub.get("netProfitMarginTTM")
             ),
             "free_cash_flow": free_cash_flow,
@@ -114,13 +114,14 @@ class FundamentalService:
             "price_to_book": self._number(
                 yahoo.get("priceToBook"), finnhub.get("pbAnnual")
             ),
-            "dividend_yield": self._decimal(
-                yahoo.get("dividendYield"), finnhub.get("dividendYieldIndicatedAnnual")
+            "dividend_yield": self._provider_decimal(
+                yahoo.get("dividendYield"),
+                finnhub.get("dividendYieldIndicatedAnnual"),
             ),
-            "institutional_ownership": self._decimal(
+            "institutional_ownership": self._number(
                 yahoo.get("heldPercentInstitutions")
             ),
-            "insider_ownership": self._decimal(yahoo.get("heldPercentInsiders")),
+            "insider_ownership": self._number(yahoo.get("heldPercentInsiders")),
             "market_cap": market_cap,
             "enterprise_value": self._number(yahoo.get("enterpriseValue")),
             "free_cash_flow_yield": free_cash_flow_yield,
@@ -141,11 +142,24 @@ class FundamentalService:
         return None
 
     @classmethod
-    def _decimal(cls, *values: Any) -> float | None:
-        value = cls._number(*values)
-        if value is None:
+    def _provider_decimal(
+        cls, yahoo_value: Any, *finnhub_values: Any
+    ) -> float | None:
+        yahoo = cls._number(yahoo_value)
+        if yahoo is not None:
+            return yahoo
+        finnhub = cls._number(*finnhub_values)
+        if finnhub is None:
             return None
-        return value / 100.0 if abs(value) > 2.0 else value
+        return finnhub / 100.0
+
+    @classmethod
+    def _market_cap(cls, yahoo_value: Any, finnhub_value: Any) -> float | None:
+        yahoo = cls._number(yahoo_value)
+        if yahoo is not None:
+            return yahoo
+        finnhub = cls._number(finnhub_value)
+        return finnhub * 1_000_000.0 if finnhub is not None else None
 
     @classmethod
     def _ratio(cls, *values: Any) -> float | None:
@@ -153,3 +167,4 @@ class FundamentalService:
         if value is None:
             return None
         return value / 100.0 if abs(value) > 10.0 else value
+
