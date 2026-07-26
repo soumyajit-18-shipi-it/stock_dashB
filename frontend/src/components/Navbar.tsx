@@ -37,7 +37,7 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
 
   return (
     <nav className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex min-w-0 items-center gap-3">
             <div className="rounded-md bg-emerald-600 p-2">
@@ -75,7 +75,7 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <div className="flex items-center gap-1 md:hidden">
               <button
                 type="button"
@@ -116,7 +116,7 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
               id="language-select"
               value={language}
               onChange={(e) => setLanguage(e.target.value as AppLanguage)}
-              className="max-w-28 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white"
+              className="hidden max-w-28 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white sm:block"
             >
               {languages.map((item) => (
                 <option key={item.code} value={item.code}>
@@ -127,16 +127,16 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
             {user && (
               <button
                 onClick={() => setAiChatOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow"
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 p-2 text-sm font-semibold text-white shadow transition-all hover:scale-105 hover:bg-emerald-700 active:scale-95 sm:px-3 sm:py-1.5"
                 aria-label={t('askAi')}
               >
                 <Bot className="h-4 w-4" />
-                <span>{t('askAi')}</span>
+                <span className="hidden sm:inline">{t('askAi')}</span>
               </button>
             )}
             <button
               onClick={() => setAiSettingsOpen(true)}
-              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              className="hidden rounded-lg p-2 transition-colors hover:bg-slate-800 sm:inline-flex"
               aria-label={t('settings')}
             >
               <Settings className="h-5 w-5 text-slate-400" />
@@ -170,3 +170,4 @@ export function Navbar({ darkMode, toggleDarkMode }: NavbarProps) {
     </nav>
   );
 }
+

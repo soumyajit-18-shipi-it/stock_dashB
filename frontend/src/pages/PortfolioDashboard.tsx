@@ -265,32 +265,32 @@ export function PortfolioDashboard() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-x-auto rounded-lg border border-slate-700">
+          <div className="mt-4 max-w-full overflow-x-auto rounded-lg border border-slate-700">
             <table className="min-w-full divide-y divide-slate-700 text-sm">
               <thead className="bg-slate-900 text-left text-xs uppercase text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">Ticker</th>
-                  <th className="px-4 py-3">
+                  <th className="px-2 py-3 sm:px-4">Ticker</th>
+                  <th className="px-2 py-3 sm:px-4">
                     {allocationMode === 'quantity' ? 'Shares' : 'Weight %'}
                   </th>
-                  <th className="px-4 py-3">Average cost</th>
-                  <th className="w-14 px-4 py-3" />
+                  <th className="hidden px-4 py-3 sm:table-cell">Average cost</th>
+                  <th className="w-12 px-2 py-3 sm:w-14 sm:px-4" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 bg-slate-950">
                 {holdings.map((item) => (
                   <tr key={item.id}>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 sm:px-4">
                       <input
                         value={item.ticker}
                         onChange={(event) =>
                           updateHolding(item.id, 'ticker', event.target.value)
                         }
-                        className="w-32 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 font-medium text-white"
+                        className="w-28 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 font-medium text-white sm:w-32"
                         maxLength={20}
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 sm:px-4">
                       <input
                         type="number"
                         min="0.0001"
@@ -309,10 +309,10 @@ export function PortfolioDashboard() {
                             event.target.value
                           )
                         }
-                        className="w-32 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                        className="w-28 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white sm:w-32"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden px-4 py-3 sm:table-cell">
                       <input
                         type="number"
                         min="0"
@@ -324,7 +324,7 @@ export function PortfolioDashboard() {
                         className="w-32 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 sm:px-4">
                       <button
                         type="button"
                         title="Remove holding"
@@ -519,3 +519,4 @@ function Metric({
     </div>
   );
 }
+

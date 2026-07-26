@@ -87,12 +87,13 @@ export function WatchlistDropdown() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-1.5 text-sm text-white transition-colors hover:bg-slate-600"
+        className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-2 py-2 text-sm text-white transition-colors hover:bg-slate-600 sm:px-3 sm:py-1.5"
         aria-expanded={open}
+        aria-label={t('watchlistMenu')}
       >
         <Star className="h-4 w-4 text-yellow-400" />
-        {t('watchlistMenu')}
-        <ChevronDown className="h-4 w-4" />
+        <span className="hidden sm:inline">{t('watchlistMenu')}</span>
+        <ChevronDown className="hidden h-4 w-4 sm:block" />
       </button>
 
       {open && (
@@ -213,3 +214,4 @@ export function WatchlistDropdown() {
     </div>
   );
 }
+
