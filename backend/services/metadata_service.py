@@ -27,6 +27,7 @@ _CACHE_TTL = 24 * 60 * 60  # 24 hours
 class ProviderResult:
     sector: str | None = None
     industry: str | None = None
+    country: str | None = None
     market_cap: float | None = None
     name: str | None = None
     source: str | None = None
@@ -104,7 +105,9 @@ class MetadataService:
 
         # 6. Cache and return
         self._cache[cache_key] = (time.time(), result)
-        has_data = bool(result.sector or result.industry or result.market_cap)
+        has_data = bool(
+            result.sector or result.industry or result.country or result.market_cap
+        )
         self._ttls[cache_key] = _CACHE_TTL if has_data else 60
 
         logger.info(
@@ -152,12 +155,14 @@ class MetadataService:
             if profile:
                 sector = self._clean_text(profile.get("sector"))
                 industry = self._clean_text(profile.get("finnhubIndustry"))
+                country = self._clean_text(profile.get("country"))
                 mc = self._clean_number(profile.get("marketCapitalization"))
                 name = self._clean_text(profile.get("name"))
 
-                if sector or industry or mc:
+                if sector or industry or country or mc:
                     current.sector = current.sector or sector
                     current.industry = current.industry or industry
+                    current.country = current.country or country
                     if mc:
                         current.market_cap = current.market_cap or (mc * 1_000_000)
                     current.name = current.name or name
@@ -188,12 +193,14 @@ class MetadataService:
         if yahoo_info:
             sector = self._clean_text(yahoo_info.get("sector"))
             industry = self._clean_text(yahoo_info.get("industry"))
+            country = self._clean_text(yahoo_info.get("country"))
             mc = self._clean_number(yahoo_info.get("marketCap"))
             name = self._clean_text(yahoo_info.get("longName") or yahoo_info.get("shortName"))
 
-            if sector or industry or mc or name:
+            if sector or industry or country or mc or name:
                 current.sector = current.sector or sector
                 current.industry = current.industry or industry
+                current.country = current.country or country
                 current.market_cap = current.market_cap or mc
                 current.name = current.name or name
                 if not current.source and (sector or industry or mc):
@@ -285,6 +292,8 @@ class MetadataService:
             fields.append("sector")
         if result.industry:
             fields.append("industry")
+        if result.country:
+            fields.append("country")
         if result.market_cap:
             fields.append("marketCap")
         if result.name:
@@ -293,3 +302,4 @@ class MetadataService:
 
 
 metadata_service = MetadataService()
+

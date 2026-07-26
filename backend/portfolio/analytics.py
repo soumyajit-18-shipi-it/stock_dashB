@@ -328,12 +328,15 @@ class PortfolioAnalyticsEngine:
         else:
             average_correlation = 1.0
         correlation_quality = float(np.clip((1.0 - average_correlation) / 1.5, 0.0, 1.0))
-        hhi = sum(value**2 for value in sector_exposure.values())
-        sector_quality = float(np.clip((1.0 - hhi) / 0.75, 0.0, 1.0))
+        holding_hhi = float(np.sum(weights**2))
+        sector_hhi = sum(value**2 for value in sector_exposure.values())
+        sector_quality = float(
+            np.clip((1.0 - sector_hhi) / 0.75, 0.0, 1.0)
+        )
         score = 100.0 * (
             0.45 * breadth + 0.30 * correlation_quality + 0.25 * sector_quality
         )
-        return score, effective_holdings, hhi
+        return score, effective_holdings, holding_hhi
 
     def _risk_score(self, volatility: float, drawdown: float) -> float:
         composite = 0.55 * min(
@@ -654,3 +657,4 @@ class PortfolioAnalyticsEngine:
         except (TypeError, ValueError):
             return None
         return parsed if parsed == parsed else None
+

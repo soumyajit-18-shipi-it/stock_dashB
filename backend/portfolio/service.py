@@ -14,6 +14,7 @@ from portfolio.analytics import PortfolioAnalyticsEngine
 from portfolio.parser import PortfolioParser
 from portfolio.types import HoldingPosition, PortfolioAnalysis
 from services.ai_service import AIService, ai_service
+from services.metadata_service import MetadataService, metadata_service
 
 
 class PortfolioService:
@@ -23,6 +24,7 @@ class PortfolioService:
         analytics: PortfolioAnalyticsEngine | None = None,
         parser: PortfolioParser | None = None,
         explanation_service: AIService | None = None,
+        company_metadata: MetadataService | None = None,
     ) -> None:
         self.data_provider = data_provider or StockDataProvider()
         self.analytics = analytics or PortfolioAnalyticsEngine(
@@ -30,6 +32,7 @@ class PortfolioService:
         )
         self.parser = parser or PortfolioParser()
         self.ai_service = explanation_service or ai_service
+        self.company_metadata = company_metadata or metadata_service
         self.fetch_concurrency = 5
 
     def parse_csv(self, content: str) -> list[HoldingPosition]:
@@ -67,6 +70,15 @@ class PortfolioService:
                             position.ticker,
                         ),
                     )
+                    company = await self.company_metadata.get_company_metadata(
+                        position.ticker, info
+                    )
+                    info = {
+                        **info,
+                        "sector": info.get("sector") or company.sector,
+                        "country": info.get("country") or company.country,
+                        "marketCap": info.get("marketCap") or company.market_cap,
+                    }
                     series = history["Close"].copy()
                     series.index = self._normalized_index(series.index)
                     series = series[~series.index.duplicated(keep="last")]
@@ -168,3 +180,4 @@ class PortfolioService:
     def _normalized_index(index: pd.Index) -> pd.DatetimeIndex:
         values = pd.to_datetime(index, utc=True).tz_localize(None)
         return values.normalize()
+

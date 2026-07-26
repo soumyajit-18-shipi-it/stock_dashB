@@ -60,3 +60,5 @@ def test_portfolio_analysis_outputs_frontier_and_risk_contribution() -> None:
     )
     assert result.monte_carlo.simulations == 2500
     assert result.correlation_matrix.tickers == ("AAPL", "MSFT", "JNJ")
+    assert result.metrics.concentration_hhi == pytest.approx(0.345)
+
