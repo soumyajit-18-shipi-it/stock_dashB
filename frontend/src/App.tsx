@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AISettingsModal, Navbar, FeedbackWidget, LoginGate } from './components';
 import { useAuth } from './hooks/useAuth';
 import i18n from './i18n';
-import { Dashboard, AuthCallback, AdminStats } from './pages';
+import { Dashboard, AuthCallback, AdminStats, PortfolioDashboard } from './pages';
 import { useAuthStore } from './store/auth_store';
 import { useUIStore } from './store/ui_store';
 
@@ -84,6 +84,9 @@ function App() {
   const renderRoute = () => {
     if (currentRoute === '/admin/stats') {
       return <AdminStats />;
+    }
+    if (currentRoute === '/portfolio') {
+      return <PortfolioDashboard />;
     }
     return <Dashboard />;
   };

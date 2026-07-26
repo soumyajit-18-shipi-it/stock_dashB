@@ -139,6 +139,6 @@ To enable Google/Gmail Sign-In:
 ## Production Notes
 
 - Vercel frontend: `https://smart-stock18.vercel.app`.
-- Railway backend: set Vercel `VITE_API_URL` to the Railway public URL ending in `/api/v1`.
-- Railway `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
-- Keep `SUPABASE_SERVICE_ROLE_KEY` only in Railway/backend environments.
+- Render backend: set Vercel `VITE_API_URL` to the Render public URL ending in `/api/v1`.
+- Render `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` only in Render/backend environments.

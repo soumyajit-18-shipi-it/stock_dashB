@@ -80,9 +80,8 @@
 
 | Platform | Purpose |
 |---|---|
-| Railway | Backend deployment (FastAPI) |
-| Vercel | Frontend hosting with API rewrites to Railway |
-| Render | Backend alternative (configured in `render.yaml`) |
+| Render | Backend deployment (FastAPI) |
+| Vercel | Frontend hosting with API calls to Render |
 | Docker | Multi-stage Dockerfile (Node → Python → production image) |
 | GitLab CI | Full CI/CD: format, lint, type_check, security (Semgrep, Gitleaks), test, coverage (>80%), build, release |
 | Devcontainer | VS Code / GitHub Codespaces support (`.devcontainer/`) |
@@ -374,9 +373,8 @@ PredictionCard displays:
 
 | Platform | Hosts | Details |
 |---|---|---|
-| **Railway** | FastAPI Backend | `railway.json` — nixpacks builder, start command `python main.py` |
-| **Vercel** | React Frontend | `vercel.json` — builds frontend, rewrites `/api/*` to Railway backend |
-| **Render** | FastAPI Backend (alternative) | `render.yaml` — service `stock-dashboard-backend`, start command `uvicorn backend.main:app --host 0.0.0.0 --port \$PORT` |
+| **Render** | FastAPI Backend | `render.yaml` — service `stock-dashboard-backend`, start command `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers` |
+| **Vercel** | React Frontend | `vercel.json` — builds frontend with `VITE_API_URL` pointing to the Render backend |
 | **Docker** | Combined (multi-stage) | Multi-stage: builds frontend (node:18), then Python backend (python:3.11-slim) |
 
 ### Docker Architecture
@@ -410,8 +408,7 @@ Three stages:
 
 | Service | Port | Startup Command |
 |---|---|---|
-| Railway | 8000 (default `$PORT`) | `python main.py` |
-| Render | `$PORT` | `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` |
+| Render | `$PORT` | `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers` |
 | Docker | 8000 | `uvicorn backend.main:app --host 0.0.0.0 --port 8000` |
 | Local dev | 8000 (default) | `uvicorn backend.main:app --reload` |
 
@@ -422,11 +419,11 @@ Three stages:
 ```json
 {
   "source": "/api/(.*)",
-  "destination": "https://stock-dashboard-production-9593.up.railway.app/api/$1"
+  "destination": "https://stock-dashb.onrender.com/api/v1/:path*"
 }
 ```
 
-The frontend uses the `VITE_API_URL` env var (defaults to `/api/v1` on Vercel, `http://localhost:8000/api/v1` locally).
+The frontend uses the `VITE_API_URL` env var. In production it points to `https://stock-dashb.onrender.com/api/v1`; locally it can point to `http://localhost:8000/api/v1`.
 
 ### Environment Variables
 
@@ -440,10 +437,10 @@ The frontend uses the `VITE_API_URL` env var (defaults to `/api/v1` on Vercel, `
 | `GEMINI_API_KEY` | Google AI | Optional |
 | `ANTHROPIC_API_KEY` | Anthropic | Optional |
 | `OPENROUTER_API_KEY` | OpenRouter | Optional |
-| `CORS_ORIGINS` | Config | Defaults to `*` |
+| `CORS_ORIGINS` | Config | Explicit frontend/local origins |
 | `HOST` | Config | Defaults to `0.0.0.0` |
 | `PORT` | Config | Defaults to `8000` |
-| `VITE_API_URL` | Frontend | Defaults to `/api/v1` |
+| `VITE_API_URL` | Frontend | Render `/api/v1` URL in production |
 
 ### Architecture Diagram
 
@@ -451,7 +448,7 @@ The frontend uses the `VITE_API_URL` env var (defaults to `/api/v1` on Vercel, `
 User Browser
     │
     ▼
-Vercel (React SPA) ──── rewrites /api/* ────→ Railway (FastAPI Backend)
+Vercel (React SPA) ──── HTTPS API calls ────→ Render (FastAPI Backend)
     │                                                   │
     ▼                                                   ▼
 localStorage                                        Supabase (PostgreSQL)
@@ -546,7 +543,7 @@ localStorage                                        Supabase (PostgreSQL)
   - PDF equity research report generation
   - Multi-language (EN, HI, OR, DE, FR)
   - Watchlist with live sparklines
-- **Deployment:** Railway (API), Vercel (UI), Docker, GitLab CI
+- **Deployment:** Render (API), Vercel (UI), Docker, GitLab CI
 - **Metrics:** RMSE, MAE, R² displayed; CI enforces >80% test coverage
 - **Practical Use:** Individual investors, financial analysts, traders, finance students
 - **Future:** WebSocket streaming, portfolio tracking, backtesting engine, news sentiment integration

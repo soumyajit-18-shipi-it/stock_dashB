@@ -10,8 +10,8 @@ load_dotenv(ROOT_DIR / "backend" / ".env")
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Stock Intelligence Dashboard API"
-    VERSION: str = "1.0.0"
+    PROJECT_NAME: str = "Explainable AI Investment Decision Support API"
+    VERSION: str = "2.0.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = os.getenv(
         "APP_ENV", os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
@@ -37,6 +37,18 @@ class Settings(BaseSettings):
 
     # External APIs
     FINNHUB_API_KEY: str = os.getenv("FINNHUB_API_KEY", "")
+    HUGGINGFACE_API_TOKEN: str = os.getenv("HUGGINGFACE_API_TOKEN", "")
+    FINANCIAL_SENTIMENT_MODEL: str = os.getenv(
+        "FINANCIAL_SENTIMENT_MODEL",
+        "mrm8488/deberta-v3-ft-financial-news-sentiment-analysis",
+    )
+    SENTIMENT_REQUEST_TIMEOUT_SECONDS: int = int(
+        os.getenv("SENTIMENT_REQUEST_TIMEOUT_SECONDS", "20")
+    )
+    RISK_FREE_RATE: float = float(os.getenv("RISK_FREE_RATE", "0.04"))
+    RECOMMENDATION_WEIGHTS_JSON: str = os.getenv(
+        "RECOMMENDATION_WEIGHTS_JSON", ""
+    )
 
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")

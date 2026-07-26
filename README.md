@@ -1,6 +1,16 @@
 # 📈 Stock Intelligence Dashboard
 
-A production-grade stock analysis and prediction platform powered by **Python FastAPI** and **React**.
+A production-grade explainable investment decision support platform powered by
+**Python FastAPI** and **React**. It combines deterministic BUY/HOLD/SELL
+recommendations, model-specific SHAP explanations, portfolio risk and
+optimization, and optional LLM explanations that cannot alter quantitative
+decisions.
+
+Platform design:
+
+- [Architecture and API](docs/explainable-investment-platform.md)
+- [Research evaluation](docs/investment-research-evaluation.md)
+- [Measured benchmarks](docs/investment-benchmarks.md)
 
 ## 🏆 Engineering Excellence & Compliance
 This repository adheres to the highest standards of software quality and maintainability.
@@ -21,6 +31,9 @@ graph TD
     FastAPI -->|Market Data| Yahoo[Yahoo Finance API]
     FastAPI -->|Company Info| Finnhub[Finnhub API]
     FastAPI -->|Inference| ML[Scikit-Learn Models]
+    FastAPI -->|Explain| SHAP[SHAP Explainers]
+    FastAPI -->|Decision| Policy[Deterministic Recommendation Engine]
+    FastAPI -->|Portfolio| Portfolio[Risk and Optimization Engine]
     React -->|Storage| Supabase[(Supabase DB)]
 ```
 
@@ -54,6 +67,9 @@ GOOGLE_AUTH_ENABLED=true
 FRONTEND_URL=http://localhost:5173
 CORS_ORIGINS=http://localhost:5173,http://localhost:5174
 FINNHUB_API_KEY=your_finnhub_key
+HUGGINGFACE_API_TOKEN=your-huggingface-read-token
+FINANCIAL_SENTIMENT_MODEL=mrm8488/deberta-v3-ft-financial-news-sentiment-analysis
+RISK_FREE_RATE=0.04
 AI_PROVIDER=groq
 GROQ_API_KEY=your-groq-key
 DEFAULT_GROQ_API_KEY=your-groq-key
@@ -156,6 +172,7 @@ User-owned data is saved per Supabase authenticated user:
 * Watchlist rows use `user_id = auth.users.id`.
 * Search history rows use `user_id = auth.users.id`.
 * Feedback rows use `user_id = auth.users.id`.
+* Portfolios and holdings use owner-only RLS policies.
 * Admin stats are available only when the authenticated email is in `ADMIN_EMAILS`.
 * Admin stats include user names/emails/avatars only for allowlisted admin sessions.
 
@@ -172,7 +189,7 @@ are answered as educational analysis, risks, and limitations, not personalized
 investment advice.
 
 Production deployment uses Render for the backend and Vercel for the frontend.
-Set Vercel `VITE_API_URL` to the Render backend URL ending in `/api/v1`, and set
+Set Vercel `VITE_API_URL` to `/api/v1` so the checked-in rewrite proxies Render, and set
 Render `CORS_ORIGINS` to include `https://smart-stock18.vercel.app`. See
 `docs/deployment.md` for the full variable lists and troubleshooting checklist.
 

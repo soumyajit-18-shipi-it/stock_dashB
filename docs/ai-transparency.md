@@ -22,7 +22,7 @@
 
 ## Privacy
 
-Hosted providers receive the user prompt and stock context. AI provider API keys are backend-only secrets and must be configured in Railway or the local backend environment. The frontend never stores or sends provider API keys.
+Hosted providers receive the user prompt and stock context. AI provider API keys are backend-only secrets and must be configured in Render or the local backend environment. The frontend never stores or sends provider API keys.
 
 ## Financial Safety
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from api.routes import router
+from api.investment_routes import router as investment_router
 from core.config import settings
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

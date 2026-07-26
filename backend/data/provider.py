@@ -435,6 +435,33 @@ class StockDataProvider:
                         "logo": sanitize_value(raw.get("logo_url") or raw.get("logo")),
                         "sharesOutstanding": sanitize_value(raw.get("sharesOutstanding")),
                         "impliedSharesOutstanding": sanitize_value(raw.get("impliedSharesOutstanding")),
+                        "revenueGrowth": sanitize_value(raw.get("revenueGrowth")),
+                        "earningsGrowth": sanitize_value(
+                            raw.get("earningsGrowth") or raw.get("earningsQuarterlyGrowth")
+                        ),
+                        "debtToEquity": sanitize_value(raw.get("debtToEquity")),
+                        "returnOnEquity": sanitize_value(raw.get("returnOnEquity")),
+                        "returnOnAssets": sanitize_value(raw.get("returnOnAssets")),
+                        "currentRatio": sanitize_value(raw.get("currentRatio")),
+                        "quickRatio": sanitize_value(raw.get("quickRatio")),
+                        "operatingMargins": sanitize_value(raw.get("operatingMargins")),
+                        "profitMargins": sanitize_value(raw.get("profitMargins")),
+                        "freeCashflow": sanitize_value(raw.get("freeCashflow")),
+                        "operatingCashflow": sanitize_value(raw.get("operatingCashflow")),
+                        "enterpriseValue": sanitize_value(raw.get("enterpriseValue")),
+                        "trailingPegRatio": sanitize_value(
+                            raw.get("trailingPegRatio") or raw.get("pegRatio")
+                        ),
+                        "trailingPE": sanitize_value(raw.get("trailingPE")),
+                        "forwardPE": sanitize_value(raw.get("forwardPE")),
+                        "priceToBook": sanitize_value(raw.get("priceToBook")),
+                        "dividendYield": sanitize_value(raw.get("dividendYield")),
+                        "heldPercentInstitutions": sanitize_value(
+                            raw.get("heldPercentInstitutions")
+                        ),
+                        "heldPercentInsiders": sanitize_value(
+                            raw.get("heldPercentInsiders")
+                        ),
                     }
                 except Exception as e:
                     logger.warning(f"t.info failed for {ticker}: {e}")

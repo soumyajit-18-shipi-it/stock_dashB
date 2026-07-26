@@ -119,3 +119,152 @@ export interface AdminStats {
   users: AdminUserSummary[];
   last_updated: string;
 }
+
+export type RiskTolerance = 'conservative' | 'balanced' | 'aggressive';
+export type InvestmentHorizon = 'short' | 'medium' | 'long';
+
+export interface ComponentScore {
+  score: number;
+  confidence: number;
+  reason: string;
+  evidence: string[];
+  metrics: Record<string, unknown>;
+  weight: number;
+  contribution: number;
+}
+
+export interface ExplanationFeature {
+  feature: string;
+  display_name: string;
+  value: number;
+  contribution: number;
+  direction: 'positive' | 'negative';
+  importance_percent: number;
+}
+
+export interface PredictionExplanation {
+  ticker: string;
+  model: string;
+  method: string;
+  provider_status: string;
+  base_value: number;
+  predicted_price: number;
+  current_price: number;
+  expected_return: number;
+  confidence: number;
+  uncertainty_lower: number;
+  uncertainty_upper: number;
+  features: ExplanationFeature[];
+  additivity_residual: number;
+}
+
+export interface RecommendationResponse {
+  ticker: string;
+  generated_at: string;
+  risk_tolerance: RiskTolerance;
+  decision: {
+    recommendation: 'BUY' | 'HOLD' | 'SELL';
+    overall_score: number;
+    confidence: number;
+    strengths: string[];
+    weaknesses: string[];
+    risk_level: 'low' | 'medium' | 'high';
+    expected_return: number;
+    expected_downside: number;
+    investment_horizon: string;
+    components: Record<string, ComponentScore>;
+    policy_checks: Record<string, boolean>;
+  };
+  prediction_explanation: PredictionExplanation | null;
+}
+
+export interface PortfolioHoldingInput {
+  ticker: string;
+  quantity?: number;
+  average_cost?: number;
+  weight?: number;
+}
+
+export interface PortfolioHoldingSnapshot {
+  ticker: string;
+  quantity: number | null;
+  average_cost: number | null;
+  current_price: number;
+  market_value: number;
+  weight: number;
+  annual_return: number;
+  annual_volatility: number;
+  risk_contribution: number;
+  sector: string;
+  country: string;
+  market_cap_bucket: string;
+  holding_score: number;
+}
+
+export interface PortfolioAnalysis {
+  generated_at: string;
+  metrics: {
+    portfolio_score: number;
+    diversification_score: number;
+    risk_score: number;
+    expected_return: number;
+    expected_volatility: number;
+    sharpe_ratio: number;
+    sortino_ratio: number;
+    maximum_drawdown: number;
+    value_at_risk_95: number;
+    beta: number | null;
+    effective_holdings: number;
+    concentration_hhi: number;
+  };
+  holdings: PortfolioHoldingSnapshot[];
+  sector_exposure: Record<string, number>;
+  country_exposure: Record<string, number>;
+  market_cap_exposure: Record<string, number>;
+  factor_exposure: Record<string, number>;
+  correlation_matrix: {
+    tickers: string[];
+    values: number[][];
+  };
+  efficient_frontier: Array<{
+    expected_return: number;
+    volatility: number;
+    sharpe_ratio: number;
+    weights: Record<string, number>;
+  }>;
+  monte_carlo: {
+    simulations: number;
+    horizon_days: number;
+    expected_terminal_value: number;
+    percentile_5: number;
+    percentile_50: number;
+    percentile_95: number;
+    loss_probability: number;
+  };
+  rebalancing: Array<{
+    ticker: string;
+    current_weight: number;
+    target_weight: number;
+    change: number;
+    action: 'INCREASE' | 'REDUCE' | 'HOLD';
+  }>;
+  allocation_timeline: Array<{
+    date: string;
+    weights: Record<string, number>;
+  }>;
+  largest_risks: string[];
+  weakest_holdings: string[];
+  best_holdings: string[];
+  explanation: string[];
+  data_warnings: string[];
+}
+
+export interface SavedPortfolio {
+  id: string;
+  user_id: string;
+  name: string;
+  analysis_snapshot?: PortfolioAnalysis | null;
+  holdings?: PortfolioHoldingInput[];
+  created_at?: string;
+  updated_at?: string;
+}

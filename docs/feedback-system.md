@@ -79,6 +79,6 @@ For open-source developers, issue templates are provided at:
 
 ## Production Notes
 
-- Feedback submissions go from Vercel frontend to Railway backend through `VITE_API_URL`.
-- Railway `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
+- Feedback submissions go from Vercel frontend to Render backend through `VITE_API_URL`.
+- Render `CORS_ORIGINS` must include `https://smart-stock18.vercel.app`.
 - Feedback requires authenticated Supabase users; the service role key remains backend-only.

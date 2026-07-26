@@ -17,3 +17,6 @@ export { AuthButton } from './AuthButton';
 export { UserMenu } from './UserMenu';
 export { FeedbackWidget } from './FeedbackWidget';
 export { LoginGate } from './LoginGate';
+export { RecommendationCard } from './RecommendationCard';
+export { PredictionExplanationPanel } from './PredictionExplanationPanel';
+export { PortfolioCharts } from './PortfolioCharts';

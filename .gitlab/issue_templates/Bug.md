@@ -19,7 +19,7 @@
 ## Environment Details
 - **Browser/App Version:** <!-- e.g. Chrome 120, iOS PWA, Tauri Desktop -->
 - **OS Version:** <!-- e.g. Windows 11, macOS Sonoma, Android 14 -->
-- **Backend URL:** <!-- e.g. local or railway instance -->
+- **Backend URL:** <!-- e.g. local or Render instance -->
 
 ## Suggested Fix
 <!-- If you have a suggested fix or know where the issue lies, describe it here. -->

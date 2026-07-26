@@ -9,6 +9,12 @@ import type {
   PredictionRecord,
   FeedbackIssue,
   AdminStats,
+  InvestmentHorizon,
+  PortfolioAnalysis,
+  PortfolioHoldingInput,
+  RecommendationResponse,
+  RiskTolerance,
+  SavedPortfolio,
 } from '../types';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -153,6 +159,129 @@ export const api = {
     }
 
     return (await response.json()) as StockResponse;
+  },
+
+  async getRecommendation(
+    ticker: string,
+    range: DateRange,
+    model: ModelType,
+    riskTolerance: RiskTolerance,
+    horizon: InvestmentHorizon
+  ): Promise<RecommendationResponse> {
+    const params = new URLSearchParams({
+      range,
+      model,
+      risk_tolerance: riskTolerance,
+      horizon,
+    });
+    const response = await fetchWithAuth(
+      `${FASTAPI_URL}/recommendation/${encodeURIComponent(ticker)}?${params}`
+    );
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to build recommendation'));
+    }
+    return (await response.json()) as RecommendationResponse;
+  },
+
+  async explainRecommendation(
+    recommendation: RecommendationResponse
+  ): Promise<string> {
+    const response = await fetchWithAuth(`${FASTAPI_URL}/recommendation/explain`, {
+      method: 'POST',
+      body: JSON.stringify({ recommendation }),
+    });
+    if (!response.ok) {
+      throw new Error(
+        await parseApiError(response, 'Failed to explain recommendation')
+      );
+    }
+    const payload = (await response.json()) as { explanation: string };
+    return payload.explanation;
+  },
+
+  async parsePortfolioCsv(content: string): Promise<PortfolioHoldingInput[]> {
+    const response = await fetchWithAuth(`${FASTAPI_URL}/portfolio/parse-csv`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to parse portfolio CSV'));
+    }
+    const payload = (await response.json()) as { holdings: PortfolioHoldingInput[] };
+    return payload.holdings;
+  },
+
+  async analyzePortfolio(
+    holdings: PortfolioHoldingInput[],
+    range: '1y' | '5y' = '5y'
+  ): Promise<PortfolioAnalysis> {
+    const response = await fetchWithAuth(`${FASTAPI_URL}/portfolio/analyze`, {
+      method: 'POST',
+      body: JSON.stringify({ holdings, range }),
+    });
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to analyze portfolio'));
+    }
+    return (await response.json()) as PortfolioAnalysis;
+  },
+
+  async analyzeWatchlist(range: '1y' | '5y' = '5y'): Promise<PortfolioAnalysis> {
+    const response = await fetchWithAuth(
+      `${FASTAPI_URL}/portfolio/analyze-watchlist?range=${range}`,
+      { method: 'POST' },
+      { requireAuth: true }
+    );
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to analyze watchlist'));
+    }
+    return (await response.json()) as PortfolioAnalysis;
+  },
+
+  async explainPortfolio(analysis: PortfolioAnalysis): Promise<string> {
+    const response = await fetchWithAuth(`${FASTAPI_URL}/portfolio/explain`, {
+      method: 'POST',
+      body: JSON.stringify({ analysis }),
+    });
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to explain portfolio'));
+    }
+    const payload = (await response.json()) as { explanation: string };
+    return payload.explanation;
+  },
+
+  async savePortfolio(
+    name: string,
+    holdings: PortfolioHoldingInput[],
+    analysisSnapshot?: PortfolioAnalysis
+  ): Promise<SavedPortfolio> {
+    const response = await fetchWithAuth(
+      `${FASTAPI_URL}/portfolios`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          holdings,
+          analysis_snapshot: analysisSnapshot,
+        }),
+      },
+      { requireAuth: true }
+    );
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to save portfolio'));
+    }
+    return (await response.json()) as SavedPortfolio;
+  },
+
+  async getPortfolios(): Promise<SavedPortfolio[]> {
+    const response = await fetchWithAuth(
+      `${FASTAPI_URL}/portfolios`,
+      {},
+      { requireAuth: true }
+    );
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, 'Failed to load portfolios'));
+    }
+    return (await response.json()) as SavedPortfolio[];
   },
 
   async getWatchlist(): Promise<WatchlistItem[]> {

@@ -18,7 +18,9 @@ class FeatureEngineer:
         df["lag5"] = df["Close"].shift(5)
         df["volume_change"] = df["Volume"].pct_change()
         df = df.replace([np.inf, -np.inf], np.nan)
-        df = df.dropna()
+        # Extended chart/recommendation indicators intentionally retain warm-up
+        # NaNs. The prediction contract only requires its legacy feature set.
+        df = df.dropna(subset=self.get_feature_columns())
         return df
 
     def get_feature_columns(self) -> list[str]:

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'stock-intel-v1';
+const CACHE_VERSION = 'stock-intel-v2';
 const APP_SHELL = ['/', '/index.html', '/offline.html', '/manifest.webmanifest', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
