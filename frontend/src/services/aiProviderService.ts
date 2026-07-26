@@ -102,7 +102,7 @@ function readableProviderError(status: number, body: string) {
   }
 
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') {
-    return 'AI provider is not configured on the backend. Set GROQ_API_KEY or DEFAULT_GROQ_API_KEY in Railway.';
+    return 'AI provider is not configured on the backend. Set GROQ_API_KEY or DEFAULT_GROQ_API_KEY in Render.';
   }
   if (code === 'AI_PROVIDER_CONNECTION_FAILED') return 'Unable to connect to the AI service.';
   if (code === 'AI_EMPTY_RESPONSE') return 'The AI response was empty. Please try again.';
