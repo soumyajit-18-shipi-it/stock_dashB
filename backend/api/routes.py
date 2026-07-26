@@ -21,7 +21,6 @@ from schemas import (
 )
 from services.history_service import HistoryService
 from services.prediction_service import PredictionService
-from services.stock_service import stock_service
 from services.watchlist_service import WatchlistService
 from services.ai_service import (
     AI_PROVIDER_SETUP_HINT,
@@ -42,6 +41,16 @@ async def test_route() -> Any:
 watchlist_service = WatchlistService()
 history_service = HistoryService()
 prediction_service = PredictionService()
+_stock_service: Any = None
+
+
+def _get_stock_service() -> Any:
+    global _stock_service
+    if _stock_service is None:
+        from services.stock_service import stock_service
+
+        _stock_service = stock_service
+    return _stock_service
 
 
 def _parse_datetime(value: Any) -> Any:
@@ -220,7 +229,7 @@ async def sync_auth_profile(
 @router.get("/debug/data")
 async def debug_data_pipeline(ticker: str = "AAPL") -> dict[str, Any]:
     try:
-        data = await stock_service.get_full_stock_analysis(ticker)
+        data = await _get_stock_service().get_full_stock_analysis(ticker)
         return {"status": "success", "data": data.dict()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -235,7 +244,9 @@ async def get_stock(
 ) -> StockResponse:
     try:
         # 1. Fetch analysis
-        analysis = await stock_service.get_full_stock_analysis(ticker, range, model)
+        analysis = await _get_stock_service().get_full_stock_analysis(
+            ticker, range, model
+        )
 
         # 2. Add to search history (silently)
         try:

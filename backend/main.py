@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from api.routes import router
+from api.investment_routes import router as investment_router
 from core.config import settings
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,6 +63,7 @@ async def log_requests(
 
 
 app.include_router(router, prefix=settings.API_V1_STR)
+app.include_router(investment_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
