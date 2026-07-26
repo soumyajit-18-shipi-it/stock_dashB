@@ -63,6 +63,7 @@ async def log_requests(
 
 
 app.include_router(router, prefix=settings.API_V1_STR)
+app.include_router(investment_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -103,3 +104,4 @@ if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host=host, port=port, reload=True)
+
