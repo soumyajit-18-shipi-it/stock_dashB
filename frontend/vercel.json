@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "https://stock-dashboard-backend.onrender.com/api/v1/:path*"
+      "destination": "https://stock-dashb.onrender.com/api/v1/:path*"
     },
     {
       "source": "/(.*)",

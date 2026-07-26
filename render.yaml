@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stock-dashboard-backend
+    name: stock_dashB
     runtime: python
     plan: free
     repo: https://github.com/soumyajit-18-shipi-it/stock_dashB
