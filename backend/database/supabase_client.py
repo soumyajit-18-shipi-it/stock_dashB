@@ -50,6 +50,8 @@ class MockTableQuery:
         "predictions": [],
         "user_profiles": [],
         "feedback_issues": [],
+        "portfolios": [],
+        "portfolio_holdings": [],
     }
 
     def __init__(self, table_name: str) -> None:

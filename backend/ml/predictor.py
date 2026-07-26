@@ -224,6 +224,30 @@ class StockPredictor:
             **{k: v for k, v in model.metrics.items() if k in ("rmse", "mae", "r2")}
         )
 
+    def prepare_explanation_context(
+        self,
+        ticker: str,
+        model_type: ModelEnum,
+        range_key: str,
+        df: pd.DataFrame,
+        background_rows: int = 96,
+    ) -> tuple[BaseModel, pd.DataFrame, pd.DataFrame]:
+        """Return the fitted model, prediction row, and recent background data.
+
+        This is the supported integration point for explainers. It preserves the
+        exact feature ordering used by persisted models without exposing callers
+        to the predictor's load/retrain rules.
+        """
+        model = self._get_or_train(model_type, df, ticker, range_key)
+        engineered = self.feature_engineer.prepare_features(df)
+        feature_columns = self.feature_engineer.get_feature_columns()
+        model_features = engineered[feature_columns]
+        if model_features.empty:
+            raise ValueError("No valid engineered rows are available for explanation")
+        prediction_input = model_features.tail(1).copy()
+        background = model_features.tail(max(20, background_rows)).copy()
+        return model, prediction_input, background
+
     # ------------------------------------------------------------------ #
     # Public API — ensemble prediction (recommended)                      #
     # ------------------------------------------------------------------ #
