@@ -66,11 +66,11 @@ export function FeedbackWidget() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-5 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-semibold shadow-lg shadow-black/25 hover:scale-105 active:scale-95 transition-all duration-200"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 p-2 text-xs font-semibold text-slate-300 shadow-lg shadow-black/25 transition-all duration-200 hover:scale-105 hover:bg-slate-700 hover:text-white active:scale-95 sm:bottom-20 sm:right-5 sm:px-3 sm:py-1.5"
         aria-label="Report Issue or Request Feature"
       >
-        <MessageSquare className="h-3.5 w-3.5" />
-        <span>Report Issue</span>
+        <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+        <span className="hidden sm:inline">Report Issue</span>
       </button>
 
       {isOpen && (
@@ -236,3 +236,4 @@ export function FeedbackWidget() {
   );
 }
 export default FeedbackWidget;
+
