@@ -34,6 +34,13 @@ class TestAPIEndpoints:
         assert "api_key" not in data
         assert "secret" not in data
 
+    def test_supabase_health_check(self, client: TestClient) -> None:
+        response = client.get("/api/v1/health/supabase")
+        assert response.status_code == 200
+        data = response.json()
+        assert "configured" in data
+        assert "using_mock_client" in data
+
     def test_ai_chat_missing_provider_returns_json_error(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -63,7 +63,6 @@ async def log_requests(
 
 
 app.include_router(router, prefix=settings.API_V1_STR)
-app.include_router(investment_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

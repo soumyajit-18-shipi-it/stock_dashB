@@ -54,6 +54,14 @@ class AIProviderTimeout(AIProviderError):
         super().__init__("AI provider request timed out")
 
 
+class AIProviderRateLimited(AIProviderError):
+    code = "AI_RATE_LIMITED"
+    status_code = 429
+
+    def __init__(self) -> None:
+        super().__init__("AI provider rate limit exceeded. Please try again later.")
+
+
 @dataclass(frozen=True)
 class ResolvedAIProvider:
     provider: str
@@ -99,11 +107,29 @@ class AIService:
                 continue
             if candidate == "ollama" and not settings.is_development and not explicit:
                 continue
+            is_prod = settings.ENVIRONMENT.lower() in ("prod", "production")
+            resolved_model = model
+            if is_prod:
+                # In production, check if the model is allowlisted. If not, ignore and use AI_MODEL or default.
+                # Allowlist only contains cheap/lightweight models
+                allowlist = {
+                    "llama-3.1-8b-instant",
+                    "mixtral-8x7b-32768",
+                    "gpt-4o-mini",
+                    "gemini-1.5-flash",
+                    "openai/gpt-4o-mini"
+                }
+                # If requested model is not in the allowlist, use backend-owned model configuration
+                if not model or model not in allowlist:
+                    resolved_model = settings.AI_MODEL or self._get_default_model(candidate)
+            else:
+                resolved_model = model or settings.AI_MODEL or self._get_default_model(candidate)
+
             return ResolvedAIProvider(
                 provider=candidate,
                 api_key=key,
                 base_url=settings.OLLAMA_BASE_URL if candidate == "ollama" else self._get_default_base_url(candidate),
-                model=model or settings.AI_MODEL or self._get_default_model(candidate),
+                model=resolved_model,
             )
 
         raise AIProviderNotConfigured()
@@ -381,6 +407,8 @@ class AIService:
                 async with client.stream(
                     "POST", url, headers=headers, json=payload
                 ) as response:
+                    if response.status_code == 429:
+                        raise AIProviderRateLimited()
                     if response.status_code != 200:
                         error_body = await response.aread()
                         raise Exception(
@@ -405,6 +433,8 @@ class AIService:
             async with client.stream(
                 "POST", url, headers=headers, json=payload
             ) as response:
+                if response.status_code == 429:
+                    raise AIProviderRateLimited()
                 if response.status_code != 200:
                     error_text = await response.aread()
                     logger.warning(

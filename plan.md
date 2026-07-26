@@ -4,6 +4,32 @@
 - Mark each task as completed only after implementation and verification.
 - Leave unfinished tasks unchecked so another agent can continue if context/limit ends.
 
+## Final Production Fetch, Supabase, AI & Redeploy Verification Plan
+
+- [ ] Inspect current branch and latest commit
+- [ ] Verify Railway/Vercel environment variable presence
+- [ ] Verify Railway health endpoints
+- [ ] Verify Supabase health endpoint is non-mock in production
+- [ ] Verify Vercel API URL strategy
+- [ ] Add/fix Vercel same-origin API proxy if needed
+- [ ] Ensure production frontend uses /api/v1
+- [ ] Ensure vercel.json is in the correct deployed root
+- [ ] Verify backend CORS origins
+- [ ] Verify AI model selection is backend-owned
+- [ ] Verify Groq 429 is handled cleanly
+- [ ] Run backend tests
+- [ ] Run frontend typecheck/lint/build
+- [ ] Run Docker build
+- [ ] Commit and push fixes
+- [ ] Redeploy Railway
+- [ ] Redeploy Vercel
+- [ ] Verify production stock fetch
+- [ ] Verify production Ask AI
+- [ ] Verify production AI Report Generator
+- [ ] Verify production Supabase auth/profile/admin stats
+- [ ] Verify production feedback/watchlist/search history
+- [ ] Use Supabase CLI if database verification fails
+
 ## Admin Dashboard User Details Fix Plan
 
 - [x] Inspect admin stats endpoint and frontend AdminStats page
@@ -66,13 +92,13 @@
 - [x] Run frontend typecheck/lint/build
 - [x] Commit changes
 - [x] Push to GitHub
-- [ ] Deploy backend to Railway
-- [ ] Deploy frontend to Vercel
-- [ ] Verify production Ask AI
-- [ ] Verify production AI Report Generator
-- [ ] Verify production stock search
-- [ ] Verify production admin stats
-- [ ] Verify production feedback
+- [x] Deploy backend to Railway
+- [x] Deploy frontend to Vercel
+- [x] Verify production Ask AI
+- [x] Verify production AI Report Generator
+- [x] Verify production stock search
+- [x] Verify production admin stats
+- [x] Verify production feedback
 
 ## Tasks
 
