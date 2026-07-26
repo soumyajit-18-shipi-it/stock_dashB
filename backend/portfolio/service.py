@@ -14,7 +14,11 @@ from portfolio.analytics import PortfolioAnalyticsEngine
 from portfolio.parser import PortfolioParser
 from portfolio.types import HoldingPosition, PortfolioAnalysis
 from services.ai_service import AIService, ai_service
-from services.metadata_service import MetadataService, metadata_service
+from services.metadata_service import (
+    MetadataService,
+    ProviderResult,
+    metadata_service,
+)
 
 
 class PortfolioService:
@@ -73,12 +77,7 @@ class PortfolioService:
                     company = await self.company_metadata.get_company_metadata(
                         position.ticker, info
                     )
-                    info = {
-                        **info,
-                        "sector": info.get("sector") or company.sector,
-                        "country": info.get("country") or company.country,
-                        "marketCap": info.get("marketCap") or company.market_cap,
-                    }
+                    info = self._enrich_company_info(info, company)
                     series = history["Close"].copy()
                     series.index = self._normalized_index(series.index)
                     series = series[~series.index.duplicated(keep="last")]
@@ -180,4 +179,15 @@ class PortfolioService:
     def _normalized_index(index: pd.Index) -> pd.DatetimeIndex:
         values = pd.to_datetime(index, utc=True).tz_localize(None)
         return values.normalize()
+
+    @staticmethod
+    def _enrich_company_info(
+        info: dict[str, Any], company: ProviderResult
+    ) -> dict[str, Any]:
+        return {
+            **info,
+            "sector": info.get("sector") or company.sector or company.industry,
+            "country": info.get("country") or company.country,
+            "marketCap": info.get("marketCap") or company.market_cap,
+        }
 
