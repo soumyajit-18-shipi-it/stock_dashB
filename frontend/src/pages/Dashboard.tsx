@@ -15,16 +15,53 @@ import {
   EmptyState,
   AskAIDrawer,
   AIReportButton,
+  RecommendationCard,
+  PredictionExplanationPanel,
 } from '../components';
+import { useRecommendation } from '../hooks/useRecommendation';
 import { useStock, useWatchlist } from '../hooks/useStock';
+import { api } from '../services/api_client';
 import { useStore } from '../store/stock_store';
 
+import type { InvestmentHorizon, RiskTolerance } from '../types';
+
 export function Dashboard() {
-  const { ticker, model } = useStore();
+  const { ticker, model, dateRange } = useStore();
   const { t } = useTranslation();
   const { watchlist, add } = useWatchlist();
   const { data: stockData, isLoading, error, refetch } = useStock();
   const [watchlistError, setWatchlistError] = useState('');
+  const [riskTolerance, setRiskTolerance] =
+    useState<RiskTolerance>('balanced');
+  const [horizon, setHorizon] = useState<InvestmentHorizon>('medium');
+  const [llmExplanation, setLlmExplanation] = useState('');
+  const [isExplaining, setIsExplaining] = useState(false);
+  const {
+    data: recommendation,
+    isLoading: recommendationLoading,
+    error: recommendationError,
+  } = useRecommendation(
+    ticker,
+    dateRange,
+    model,
+    riskTolerance,
+    horizon
+  );
+
+  const explainRecommendation = async () => {
+    if (!recommendation) return;
+    setIsExplaining(true);
+    setLlmExplanation('');
+    try {
+      setLlmExplanation(await api.explainRecommendation(recommendation));
+    } catch (caught) {
+      setLlmExplanation(
+        caught instanceof Error ? caught.message : 'AI explanation failed'
+      );
+    } finally {
+      setIsExplaining(false);
+    }
+  };
 
   const isInWatchlist = watchlist.some((item) => item.ticker === ticker);
 
@@ -91,6 +128,29 @@ export function Dashboard() {
               </p>
             )}
 
+            <RecommendationCard
+              recommendation={recommendation}
+              isLoading={recommendationLoading}
+              error={
+                recommendationError instanceof Error
+                  ? recommendationError
+                  : null
+              }
+              riskTolerance={riskTolerance}
+              horizon={horizon}
+              onRiskToleranceChange={(value) => {
+                setRiskTolerance(value);
+                setLlmExplanation('');
+              }}
+              onHorizonChange={(value) => {
+                setHorizon(value);
+                setLlmExplanation('');
+              }}
+              onExplain={() => void explainRecommendation()}
+              isExplaining={isExplaining}
+              llmExplanation={llmExplanation}
+            />
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 <StockChart
@@ -110,6 +170,9 @@ export function Dashboard() {
                 />
               </div>
             </div>
+            <PredictionExplanationPanel
+              explanation={recommendation?.prediction_explanation}
+            />
           </div>
         ) : null}
       </div>
