@@ -4,16 +4,29 @@ from __future__ import annotations
 
 import numpy as np
 
+from recommendation_engine.config import RiskScoreConfig
 from recommendation_engine.types import ScoreResult, bounded_confidence, bounded_score
 from risk import RiskMetrics
 
 
 class RiskScorer:
+    def __init__(self, config: RiskScoreConfig | None = None) -> None:
+        self.config = config or RiskScoreConfig()
+
     def calculate(self, metrics: RiskMetrics) -> ScoreResult:
         risks: dict[str, float | None] = {
-            "volatility": min(1.0, metrics.historical_volatility / 0.50),
-            "drawdown": min(1.0, metrics.maximum_drawdown / 0.50),
-            "value_at_risk": min(1.0, metrics.value_at_risk_95 / 0.05),
+            "volatility": min(
+                1.0,
+                metrics.historical_volatility / self.config.volatility_ceiling,
+            ),
+            "drawdown": min(
+                1.0,
+                metrics.maximum_drawdown / self.config.drawdown_ceiling,
+            ),
+            "value_at_risk": min(
+                1.0,
+                metrics.value_at_risk_95 / self.config.value_at_risk_ceiling,
+            ),
             "liquidity": metrics.liquidity_risk,
             "tail": metrics.tail_risk,
             "sector": metrics.sector_risk,
@@ -22,18 +35,18 @@ class RiskScorer:
         composite_risk = float(np.mean(available)) if available else 0.5
         score = bounded_score(1.0 - 2.0 * composite_risk)
         confidence = min(1.0, len(available) / len(risks)) * min(
-            1.0, metrics.observations / 126.0
+            1.0, metrics.observations / self.config.minimum_observations
         )
         evidence = []
         if metrics.risk_level == "high":
             evidence.append("Overall market risk is high")
         if metrics.volatility_regime == "high":
             evidence.append("Volatility is above its recent regime")
-        if metrics.maximum_drawdown >= 0.20:
+        if metrics.maximum_drawdown >= self.config.material_drawdown:
             evidence.append("Historical maximum drawdown is material")
-        if metrics.liquidity_risk >= 0.60:
+        if metrics.liquidity_risk >= self.config.elevated_liquidity_risk:
             evidence.append("Trading liquidity may be limited")
-        if metrics.sharpe_ratio > 1.0:
+        if metrics.sharpe_ratio > self.config.strong_sharpe_ratio:
             evidence.append("Historical risk-adjusted returns are strong")
         if not evidence:
             evidence.append("Observed risk metrics are moderate")

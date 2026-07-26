@@ -92,6 +92,17 @@ class PredictionScoreConfig:
     uncertainty_penalty_scale: float = 0.10
 
 
+@dataclass(frozen=True)
+class RiskScoreConfig:
+    volatility_ceiling: float = 0.50
+    drawdown_ceiling: float = 0.50
+    value_at_risk_ceiling: float = 0.05
+    minimum_observations: int = 126
+    material_drawdown: float = 0.20
+    elevated_liquidity_risk: float = 0.60
+    strong_sharpe_ratio: float = 1.0
+
+
 SECTOR_ETFS = {
     "Basic Materials": "XLB",
     "Communication Services": "XLC",
